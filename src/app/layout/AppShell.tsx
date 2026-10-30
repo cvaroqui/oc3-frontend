@@ -1,8 +1,9 @@
 import { useState, type ReactNode } from "react";
-import { Link, Outlet } from "@tanstack/react-router";
+import { Link, Outlet, useLocation } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { useAuthStatus, useCredentials } from "@/lib/api/auth";
 import { useEffectiveUser } from "@/lib/api/impersonation";
+import { AboutPage } from "@/features/about/AboutPage";
 import { SignIn } from "@/features/auth/SignIn";
 import opensvcLogo from "@/assets/opensvc-logo.svg";
 import { Sidebar } from "./Sidebar";
@@ -46,6 +47,7 @@ export function AppShell() {
   const credentials = useCredentials();
   const status = useAuthStatus();
   const user = useEffectiveUser();
+  const { pathname } = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(readSidebarOpen);
 
   function toggleSidebar() {
@@ -91,11 +93,23 @@ export function AppShell() {
   if (status === "checking") return <SessionProbe />;
 
   // As long as nobody is signed in, no view has data to show: the sign-in screen is
-  // displayed instead, without the tools of the interface.
+  // displayed instead, without the tools of the interface. About stays open: what it
+  // tells of the personal data is worth reading before signing in.
   if (credentials === null) {
     return (
       <div className="min-h-dvh bg-surface px-4 text-ink">
-        <SignIn />
+        {pathname === "/about" ? (
+          <>
+            <AboutPage />
+            <p className="mx-auto max-w-3xl p-4">
+              <Link to="/" className="text-accent underline-offset-2 hover:underline">
+                {t("auth.signIn")}
+              </Link>
+            </p>
+          </>
+        ) : (
+          <SignIn />
+        )}
       </div>
     );
   }

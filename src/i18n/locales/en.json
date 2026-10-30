@@ -3933,6 +3933,43 @@
     "copied": "Copied",
     "copyFailed": "Copy failed"
   },
+  "about": {
+    "title": "About",
+    "tagline": "The collector of OpenSVC: the inventory of the nodes and the services of your clusters, their state over time, their compliance, and the actions run on them.",
+    "interface": "Interface",
+    "api": "API",
+    "publisher": {
+      "title": "Publisher",
+      "contact": "Contact",
+      "support": "Support"
+    },
+    "licenses": {
+      "title": "Licenses and sources",
+      "under": "under the {{license}} license",
+      "bundled": "This interface bundles the following software, each under its own license:"
+    },
+    "privacy": {
+      "title": "Personal data (GDPR)",
+      "none": "This interface collects nothing for OpenSVC SAS: no analytics, no tracking, no advertising. Your browser talks to the API of this collector alone, apart from the links you follow and the sign-in with an identity provider.",
+      "controller": "The collector is run by your organization, the controller of the data it records, such as the accounts, the sign-ins and the actions done.",
+      "browser": "Your browser keeps on this device, in its local storage: your display preferences and the drafts of the compliance designer; for the time of the tab: the records you opened and, signed in with a password, your credentials. Clearing the site data of your browser removes them all.",
+      "oidc": "Signed in through an identity provider, its own policy applies to what it handles.",
+      "assistant": "When your organization has set up an AI assistant, what you write to it goes to that assistant, through the collector.",
+      "rights": "For your rights over the data the collector records, ask its operator; for this software, write to"
+    },
+    "cookies": {
+      "title": "Cookies",
+      "text": "Signing in through an identity provider sets the cookies that hold your session, needed for the sign-in to work; they are removed when you sign out. The interface sets no other cookie, none for tracking."
+    },
+    "accessibility": {
+      "title": "Accessibility",
+      "text": "This interface comes in English and French, can be used with the keyboard, offers light and dark modes and high-contrast and colour-blind friendly themes, and never conveys a state by colour alone. Report a barrier to"
+    },
+    "security": {
+      "title": "Security",
+      "text": "Report a vulnerability in confidence to"
+    }
+  },
   "agentWebapp": {
     "open": "Agent web app"
   },

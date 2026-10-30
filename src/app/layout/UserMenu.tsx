@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { ObjectIcon } from "@/components/opensvc/ObjectIcon";
-import { BookIcon, CodeIcon, SignOutIcon, UserIcon } from "@/components/ui/icons";
+import { BookIcon, CodeIcon, InfoIcon, SignOutIcon, UserIcon } from "@/components/ui/icons";
 import { useApiDocsUrl } from "@/lib/api/api-docs";
 import { useHiddenMenuEntries } from "@/lib/api/hidden-menu-entries";
 import { stopImpersonating } from "@/lib/session";
@@ -221,6 +221,18 @@ export function UserMenu({ user }: { user: string }) {
             {t("header.opensvcDocs")}
             <span className="sr-only">{t("header.newTab")}</span>
           </a>
+          <Link
+            to="/about"
+            role="menuitem"
+            tabIndex={-1}
+            onClick={() => {
+              close(false);
+            }}
+            className={ITEM}
+          >
+            <InfoIcon className="text-ink-muted" />
+            {t("about.title")}
+          </Link>
           <div role="separator" className="my-1 border-t border-line" />
           {impersonation === null && canImpersonate && (
             <button

@@ -3933,6 +3933,43 @@
     "copied": "Copié",
     "copyFailed": "Échec de la copie"
   },
+  "about": {
+    "title": "À propos",
+    "tagline": "Le collecteur d'OpenSVC : l'inventaire des nœuds et des services de vos clusters, leur état dans le temps, leur conformité et les actions qui y sont lancées.",
+    "interface": "Interface",
+    "api": "API",
+    "publisher": {
+      "title": "Éditeur",
+      "contact": "Contact",
+      "support": "Support"
+    },
+    "licenses": {
+      "title": "Licences et sources",
+      "under": "sous licence {{license}}",
+      "bundled": "Cette interface intègre les logiciels suivants, chacun sous sa propre licence :"
+    },
+    "privacy": {
+      "title": "Données personnelles (RGPD)",
+      "none": "Cette interface ne collecte rien pour OpenSVC SAS : ni mesure d'audience, ni pistage, ni publicité. Votre navigateur ne parle qu'à l'API de ce collecteur, en dehors des liens que vous suivez et de la connexion par un fournisseur d'identité.",
+      "controller": "Le collecteur est exploité par votre organisation, responsable des données qu'il enregistre, comme les comptes, les connexions et les actions effectuées.",
+      "browser": "Votre navigateur conserve sur cet appareil, dans son stockage local : vos préférences d'affichage et les brouillons du designer de conformité ; le temps de l'onglet : les fiches ouvertes et, connecté par mot de passe, vos identifiants. Effacer les données du site dans votre navigateur les supprime toutes.",
+      "oidc": "Connecté par un fournisseur d'identité, sa propre politique s'applique à ce qu'il traite.",
+      "assistant": "Si votre organisation a mis en place un assistant IA, ce que vous lui écrivez lui parvient, en passant par le collecteur.",
+      "rights": "Pour vos droits sur les données qu'enregistre le collecteur, adressez-vous à son exploitant ; pour ce logiciel, écrivez à"
+    },
+    "cookies": {
+      "title": "Cookies",
+      "text": "La connexion par un fournisseur d'identité dépose les cookies qui portent votre session, nécessaires à son fonctionnement ; ils sont supprimés à la déconnexion. L'interface ne dépose aucun autre cookie, aucun pour le pistage."
+    },
+    "accessibility": {
+      "title": "Accessibilité",
+      "text": "Cette interface existe en français et en anglais, s'utilise au clavier, propose des modes clair et sombre et des thèmes à fort contraste et adaptés aux daltoniens, et ne signale jamais un état par la seule couleur. Signalez un obstacle à"
+    },
+    "security": {
+      "title": "Sécurité",
+      "text": "Signalez une vulnérabilité en toute confidentialité à"
+    }
+  },
   "agentWebapp": {
     "open": "Webapp de l'agent"
   },

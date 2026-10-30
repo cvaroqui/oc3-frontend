@@ -8,6 +8,9 @@
 
 FROM node:24.22-alpine AS builder
 
+# The context has no .git: the version shown by the About page comes from here.
+ARG VERSION
+
 WORKDIR /app
 
 # Dependencies first, so that a source change keeps this layer cached.
@@ -15,7 +18,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
 COPY . .
-RUN npm run build
+RUN VERSION="${VERSION}" npm run build
 
 FROM nginxinc/nginx-unprivileged:1.28-alpine
 

@@ -8,7 +8,13 @@ import { api, API_BASE } from "./client";
  * changes with the configuration of the server.
  */
 export function useApiDocsUrl(): string | undefined {
-  const version = useQuery({
+  const version = useApiVersion();
+  return version.data?.api_docs === true ? `${API_BASE}/` : undefined;
+}
+
+/** What the API says of itself, which it answers signed in or not. */
+export function useApiVersion() {
+  return useQuery({
     queryKey: ["version"],
     staleTime: Infinity,
     queryFn: async () => {
@@ -17,5 +23,4 @@ export function useApiDocsUrl(): string | undefined {
       return data;
     },
   });
-  return version.data?.api_docs === true ? `${API_BASE}/` : undefined;
 }

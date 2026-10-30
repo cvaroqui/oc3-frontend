@@ -854,6 +854,14 @@ export function BookIcon(props: IconProps) {
   );
 }
 
+export function InfoIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 5a1.25 1.25 0 1 1 0 2.5A1.25 1.25 0 0 1 12 7Zm1.5 10h-3a1 1 0 1 1 0-2h.5v-3h-.5a1 1 0 1 1 0-2H12a1 1 0 0 1 1 1v4h.5a1 1 0 1 1 0 2Z" />
+    </Svg>
+  );
+}
+
 export function ExternalLinkIcon(props: IconProps) {
   return (
     <Svg {...props}>

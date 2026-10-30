@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { api } from "@/lib/api/client";
 import {
@@ -189,6 +190,12 @@ export function SignIn() {
           </p>
         )}
       </div>
+
+      <p className="mt-3 text-center">
+        <Link to="/about" className="text-ink-muted underline-offset-2 hover:underline">
+          {t("about.title")}
+        </Link>
+      </p>
     </div>
   );
 }

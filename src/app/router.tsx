@@ -1,5 +1,6 @@
 import { createRootRoute, createRoute, createRouter, redirect } from "@tanstack/react-router";
 import { AppShell } from "./layout/AppShell";
+import { AboutPage } from "@/features/about/AboutPage";
 import { AppsPage } from "@/features/apps/AppsPage";
 import { ComplianceLogsPage } from "@/features/compliance-logs/ComplianceLogsPage";
 import { ComplianceAttachmentsPage } from "@/features/compliance-attachments/ComplianceAttachmentsPage";
@@ -462,6 +463,13 @@ const profileRoute = createRoute({
   component: ProfilePage,
 });
 
+// About the collector: no list state either. `AppShell` shows it signed out too.
+const aboutRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/about",
+  component: AboutPage,
+});
+
 const routeTree = rootRoute.addChildren([
   dashboardRoute,
   dashboardRedirectRoute,
@@ -517,6 +525,7 @@ const routeTree = rootRoute.addChildren([
   orchestrationRunsRoute,
   orchestrationRunRoute,
   profileRoute,
+  aboutRoute,
 ]);
 
 export const router = createRouter({ routeTree });
