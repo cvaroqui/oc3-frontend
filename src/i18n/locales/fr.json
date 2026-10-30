@@ -3933,6 +3933,9 @@
     "copied": "Copié",
     "copyFailed": "Échec de la copie"
   },
+  "agentWebapp": {
+    "open": "Webapp de l'agent"
+  },
   "agentActions": {
     "statusNames": {
       "ok": "ok",

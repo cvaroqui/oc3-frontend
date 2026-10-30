@@ -8,6 +8,7 @@ import { TeamLink } from "@/features/groups/TeamLink";
 import { NODE_RELATED_TABS, NODE_TAB_GROUPS } from "./related/node-related";
 import { useSearch } from "@tanstack/react-router";
 import { NodeActionsMenu } from "./NodeActionsMenu";
+import { NodeWebappLink } from "@/components/opensvc/AgentWebappLink";
 import { ObjectTags } from "@/components/opensvc/ObjectTags";
 import { OsLogo } from "@/components/opensvc/OsLogo";
 import { useTeams } from "@/features/groups/use-teams";
@@ -347,12 +348,15 @@ export function NodeDetailPanel({
       propertiesFamily="node"
       label={t("nodes.related.label")}
       titleActions={
-        tagEdit.allowed && nodeId !== undefined ? (
-          <NodeActionsMenu
-            nodes={[{ id: nodeId, name: node?.nodename ?? nodeId }]}
-            onDeleted={onClose}
-          />
-        ) : undefined
+        <div className="flex items-center gap-2">
+          {tagEdit.allowed && nodeId !== undefined && (
+            <NodeActionsMenu
+              nodes={[{ id: nodeId, name: node?.nodename ?? nodeId }]}
+              onDeleted={onClose}
+            />
+          )}
+          <NodeWebappLink node={node} />
+        </div>
       }
     >
       <ObjectTags

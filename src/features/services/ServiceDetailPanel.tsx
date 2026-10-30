@@ -19,6 +19,7 @@ import {
 import { RelatedTabsPanel } from "@/components/opensvc/RelatedTabsPanel";
 import { StatusTimeline } from "@/components/opensvc/StatusTimeline";
 import { ServiceActionsMenu } from "./ServiceActionsMenu";
+import { ServiceWebappLink } from "@/components/opensvc/AgentWebappLink";
 import { useServiceTags } from "./related/queries";
 import { SERVICE_RELATED_TABS, SERVICE_TAB_GROUPS } from "./related/service-related";
 import { formatDateTime } from "@/lib/format";
@@ -227,12 +228,19 @@ export function ServiceDetailPanel({
       propertiesFamily="service"
       label={t("services.related.label")}
       titleActions={
-        tagEdit.allowed && svcId !== undefined ? (
-          <ServiceActionsMenu
-            services={[{ id: svcId, name: service?.svcname ?? svcId }]}
-            onDeleted={onClose}
+        <div className="flex items-center gap-2">
+          {tagEdit.allowed && svcId !== undefined && (
+            <ServiceActionsMenu
+              services={[{ id: svcId, name: service?.svcname ?? svcId }]}
+              onDeleted={onClose}
+            />
+          )}
+          <ServiceWebappLink
+            svcname={service?.svcname}
+            nodes={service?.svc_nodes}
+            clusterId={service?.cluster_id}
           />
-        ) : undefined
+        </div>
       }
     >
       <ObjectTags

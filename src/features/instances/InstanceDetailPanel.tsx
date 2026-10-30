@@ -10,6 +10,7 @@ import { StatusTimeline } from "@/components/opensvc/StatusTimeline";
 import { linkedField } from "@/components/opensvc/linked-field";
 import { ObjectTags } from "@/components/opensvc/ObjectTags";
 import { InstanceActionsMenu } from "./InstanceActionsMenu";
+import { InstanceWebappLink } from "@/components/opensvc/AgentWebappLink";
 import { useServiceTags } from "@/features/services/related/queries";
 import { useTagEdit } from "@/features/tags/use-tag-edit";
 import { problemText } from "@/lib/api/problem";
@@ -188,9 +189,19 @@ export function InstanceDetailPanel({
       propertiesFamily="service"
       label={t("instances.detail.tabs")}
       titleActions={
-        tagEdit.allowed && instanceId !== undefined ? (
-          <InstanceActionsMenu instances={[{ id: instanceId, name: title }]} onDeleted={onClose} />
-        ) : undefined
+        <div className="flex items-center gap-2">
+          {tagEdit.allowed && instanceId !== undefined && (
+            <InstanceActionsMenu
+              instances={[{ id: instanceId, name: title }]}
+              onDeleted={onClose}
+            />
+          )}
+          <InstanceWebappLink
+            svcname={instance?.["services.svcname"]}
+            nodename={instance?.["nodes.nodename"]}
+            nodeId={key?.nodeId}
+          />
+        </div>
       }
     >
       <ObjectTags
