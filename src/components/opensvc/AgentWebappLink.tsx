@@ -6,16 +6,34 @@ import { problemText } from "@/lib/api/problem";
 import { ExternalLinkIcon } from "@/components/ui/icons";
 
 type NodeRow = components["schemas"]["NodeRow"];
-type NodeAddress = Pick<NodeRow, "fqdn" | "listener_port">;
+type NodeAddress = Pick<NodeRow, "connect_to" | "fqdn" | "listener_port">;
 
-/** A host name alone: an fqdn can be edited, it must not bring a path or a user with it. */
+/** A host name or an IPv4 alone: an fqdn can be edited, it must not bring a path or a user. */
 const HOST = /^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/i;
+/** The same with the port `connect_to` may name, since the listener port is not added to it. */
+const HOST_PORT = /^[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:\d{1,5})?$/i;
+/** An IPv6, which `node.connect_to` may hold. */
+const IPV6 = /^[0-9a-f]*:[0-9a-f:.]+$/i;
+
+/** The URL a `connect_to` stands for, undefined when empty or unusable. */
+function connectToOrigin(connectTo: string | null | undefined): string | undefined {
+  if (typeof connectTo !== "string") return undefined;
+  if (HOST_PORT.test(connectTo)) return `https://${connectTo}`;
+  return IPV6.test(connectTo) ? `https://[${connectTo}]` : undefined;
+}
 
 /**
- * Where the listener of a node's agent answers: the fqdn and the port the agent
- * pushes with its asset. Undefined when the collector does not know them.
+ * Where the listener of a node's agent answers: the `connect_to` set for the node,
+ * taken as it is, else its fqdn on the port the agent pushes with its asset.
+ * Undefined when the collector does not know them.
  */
-function listenerOrigin({ fqdn, listener_port: port }: NodeAddress): string | undefined {
+function listenerOrigin({
+  connect_to: connectTo,
+  fqdn,
+  listener_port: port,
+}: NodeAddress): string | undefined {
+  const origin = connectToOrigin(connectTo);
+  if (origin !== undefined) return origin;
   if (typeof fqdn !== "string" || !HOST.test(fqdn)) return undefined;
   if (typeof port !== "number" || !Number.isInteger(port) || port < 1 || port > 65535) {
     return undefined;
@@ -31,7 +49,7 @@ function useNodeAddresses(filter: string[], enabled: boolean) {
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const { data, error } = await api.GET("/nodes", {
-        params: { query: { props: "nodename,fqdn,listener_port", limit: 0, filter } },
+        params: { query: { props: "nodename,connect_to,fqdn,listener_port", limit: 0, filter } },
       });
       if (error !== undefined) throw new Error(problemText(error));
       const rows: NodeRow[] = Array.isArray(data.data) ? data.data : [];
