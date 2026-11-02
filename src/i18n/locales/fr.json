@@ -1064,7 +1064,8 @@
           "confirm_other": "Supprimer {{count}} services",
           "running": "Suppression…",
           "done_one": "1 service supprimé.",
-          "done_other": "{{count}} services supprimés."
+          "done_other": "{{count}} services supprimés.",
+          "description": "Retirer le service et tous ses enregistrements du collecteur : instances, ressources, alertes, tags, historique."
         },
         "notificationsOn": {
           "label": "Activer les notifications",
@@ -1074,7 +1075,8 @@
           "confirm_other": "Activer pour {{count}} services",
           "running": "Activation…",
           "done_one": "Notifications activées pour 1 service.",
-          "done_other": "Notifications activées pour {{count}} services."
+          "done_other": "Notifications activées pour {{count}} services.",
+          "description": "Le collecteur envoie de nouveau les notifications du service."
         },
         "notificationsOff": {
           "label": "Désactiver les notifications",
@@ -1084,7 +1086,8 @@
           "confirm_other": "Désactiver pour {{count}} services",
           "running": "Désactivation…",
           "done_one": "Notifications désactivées pour 1 service.",
-          "done_other": "Notifications désactivées pour {{count}} services."
+          "done_other": "Notifications désactivées pour {{count}} services.",
+          "description": "Le collecteur cesse d'envoyer les notifications du service."
         },
         "tagAttach": {
           "label": "Attacher un tag",
@@ -1095,7 +1098,8 @@
           "running": "Rattachement…",
           "done_one": "Tag {{choice}} attaché à 1 service.",
           "done_other": "Tag {{choice}} attaché à {{count}} services.",
-          "choice": "Tag"
+          "choice": "Tag",
+          "description": "Attacher un tag au service."
         },
         "modulesetAttach": {
           "label": "Attacher un moduleset",
@@ -1106,7 +1110,8 @@
           "running": "Rattachement…",
           "done_one": "Moduleset {{choice}} attaché à 1 service.",
           "done_other": "Moduleset {{choice}} attaché à {{count}} services.",
-          "choice": "Moduleset"
+          "choice": "Moduleset",
+          "description": "Attacher un moduleset de conformité au service."
         },
         "modulesetDetach": {
           "label": "Détacher un moduleset",
@@ -1117,7 +1122,8 @@
           "running": "Détachement…",
           "done_one": "Moduleset {{choice}} détaché de 1 service.",
           "done_other": "Moduleset {{choice}} détaché de {{count}} services.",
-          "choice": "Moduleset"
+          "choice": "Moduleset",
+          "description": "Détacher un moduleset de conformité du service."
         },
         "rulesetAttach": {
           "label": "Attacher un ruleset",
@@ -1128,7 +1134,8 @@
           "running": "Rattachement…",
           "done_one": "Ruleset {{choice}} attaché à 1 service.",
           "done_other": "Ruleset {{choice}} attaché à {{count}} services.",
-          "choice": "Ruleset (explicite et public)"
+          "choice": "Ruleset (explicite et public)",
+          "description": "Attacher un ruleset de conformité au service."
         },
         "rulesetDetach": {
           "label": "Détacher un ruleset",
@@ -1139,7 +1146,8 @@
           "running": "Détachement…",
           "done_one": "Ruleset {{choice}} détaché de 1 service.",
           "done_other": "Ruleset {{choice}} détaché de {{count}} services.",
-          "choice": "Ruleset (explicite et public)"
+          "choice": "Ruleset (explicite et public)",
+          "description": "Détacher un ruleset de conformité du service."
         }
       },
       "fields": {
@@ -1186,6 +1194,18 @@
         "label": "Afficher en",
         "table": "Tableau",
         "timeline": "Frise"
+      },
+      "descriptions": {
+        "push config": "L'agent envoie la configuration du service au collecteur.",
+        "push resinfo": "L'agent envoie les informations des ressources du service : adresses, chemins, versions.",
+        "freeze": "Le démon cesse d'orchestrer le service, sur tous ses nœuds.",
+        "thaw": "Le démon orchestre de nouveau le service.",
+        "clear": "Effacer l'état d'échec du moniteur du service.",
+        "abort": "Abandonner l'action en cours sur le service.",
+        "switch": "Arrêter le service sur son nœud et le démarrer sur un autre.",
+        "giveback": "Ramener le service sur son nœud préféré.",
+        "start": "Démarrer le service, là où son placement le prévoit.",
+        "stop": "Arrêter le service sur tous ses nœuds."
       }
     },
     "pkgdiff": {
@@ -1357,7 +1377,8 @@
           "confirm_other": "Supprimer {{count}} alertes",
           "running": "Suppression…",
           "done_one": "1 alerte supprimée.",
-          "done_other": "{{count}} alertes supprimées."
+          "done_other": "{{count}} alertes supprimées.",
+          "description": "Retirer les alertes du tableau de bord ; elles reviennent si leur cause persiste."
         }
       },
       "notFound": "déjà supprimée"
@@ -2004,8 +2025,30 @@
           "confirm_other": "Supprimer {{count}} instances",
           "running": "Suppression…",
           "done_one": "1 instance supprimée.",
-          "done_other": "{{count}} instances supprimées."
+          "done_other": "{{count}} instances supprimées.",
+          "description": "Retirer l'instance du collecteur, avec ses ressources et son historique."
         }
+      },
+      "descriptions": {
+        "push config": "L'agent envoie la configuration du service au collecteur.",
+        "push resinfo": "L'agent envoie les informations des ressources de l'instance : adresses, chemins, versions.",
+        "compliance_check": "Vérifier les modules de conformité attachés au service, sans rien changer.",
+        "compliance_fix": "Corriger ce que les modules de conformité attachés au service trouvent en écart.",
+        "freeze": "Le démon cesse d'orchestrer l'instance sur ce nœud.",
+        "thaw": "Le démon orchestre de nouveau l'instance sur ce nœud.",
+        "clear": "Effacer l'état d'échec du moniteur de l'instance.",
+        "abort": "Abandonner l'action en cours sur l'instance.",
+        "syncall": "Synchroniser les données de l'instance vers toutes ses copies.",
+        "syncnodes": "Synchroniser les données vers les copies des autres nœuds du cluster.",
+        "syncdrp": "Synchroniser les données vers les copies du site de secours.",
+        "enable": "Réactiver l'instance : ses ressources sont de nouveau démarrées et surveillées.",
+        "disable": "Désactiver l'instance : ses ressources ne sont plus démarrées ni surveillées.",
+        "switch": "Arrêter le service sur ce nœud et le démarrer sur un autre.",
+        "takeover": "Démarrer le service sur ce nœud, en l'arrêtant là où il tourne.",
+        "giveback": "Ramener le service sur son nœud préféré.",
+        "start": "Démarrer l'instance sur ce nœud.",
+        "restart": "Arrêter puis démarrer l'instance sur ce nœud.",
+        "stop": "Arrêter l'instance sur ce nœud."
       }
     },
     "compare": {
@@ -2517,7 +2560,11 @@
       "queueing": "Application…",
       "queued_one": "{{action}} appliqué à 1 action.",
       "queued_other": "{{action}} appliqué à {{count}} actions.",
-      "failure": "{{name}} : {{message}}"
+      "failure": "{{name}} : {{message}}",
+      "descriptions": {
+        "cancel": "Retirer les actions de la file avant qu'un agent ne les prenne.",
+        "redo": "Remettre les actions en file, pour qu'un agent les exécute de nouveau."
+      }
     },
     "statusNames": {
       "W": "En attente",
@@ -3865,6 +3912,11 @@
         "freeze": "Geler tous les nœuds",
         "thaw": "Dégeler tous les nœuds",
         "abort": "Interrompre l'orchestration en cours"
+      },
+      "descriptions": {
+        "freeze": "Le démon de chaque nœud cesse d'orchestrer ses instances.",
+        "thaw": "Le démon de chaque nœud orchestre de nouveau ses instances.",
+        "abort": "Abandonner l'orchestration en cours sur tout le cluster."
       }
     }
   },
@@ -3916,6 +3968,13 @@
       "groups": {
         "maintenance": "Maintenance",
         "startStop": "Démarrage et arrêt"
+      },
+      "descriptions": {
+        "enable": "Réactiver les ressources sélectionnées : elles sont de nouveau démarrées et surveillées.",
+        "disable": "Désactiver les ressources sélectionnées : elles ne sont plus démarrées ni surveillées.",
+        "start": "Démarrer les ressources sélectionnées.",
+        "restart": "Arrêter puis démarrer les ressources sélectionnées.",
+        "stop": "Arrêter les ressources sélectionnées."
       }
     }
   },
@@ -3935,7 +3994,10 @@
       "dataLoss": "perte de données"
     },
     "filter": "Filtrer les actions",
-    "noMatch": "Aucune action ne correspond."
+    "noMatch": "Aucune action ne correspond.",
+    "dataDescriptions": {
+      "delete": "Supprimer définitivement les éléments sélectionnés du collecteur."
+    }
   },
   "commonality": {
     "title": "Points communs de {{what}}",
@@ -4072,7 +4134,8 @@
           "confirm_other": "Acquitter {{count}} actions",
           "running": "Acquittement…",
           "done_one": "1 action acquittée.",
-          "done_other": "{{count}} actions acquittées."
+          "done_other": "{{count}} actions acquittées.",
+          "description": "Acquitter les actions en erreur : elles ne comptent plus parmi les erreurs à traiter."
         }
       }
     }
@@ -4299,7 +4362,8 @@
           "confirm_other": "Fixer sur {{count}} checks",
           "running": "Enregistrement…",
           "done_one": "Seuils fixés sur 1 check.",
-          "done_other": "Seuils fixés sur {{count}} checks."
+          "done_other": "Seuils fixés sur {{count}} checks.",
+          "description": "Fixer les seuils d'alerte des relevés sélectionnés."
         },
         "resetThresholds": {
           "label": "Réinitialiser les seuils",
@@ -4309,7 +4373,8 @@
           "confirm_other": "Réinitialiser {{count}} checks",
           "running": "Réinitialisation…",
           "done_one": "Seuils de 1 check réinitialisés.",
-          "done_other": "Seuils de {{count}} checks réinitialisés."
+          "done_other": "Seuils de {{count}} checks réinitialisés.",
+          "description": "Revenir aux seuils par défaut des relevés sélectionnés."
         },
         "delete": {
           "label": "Supprimer",
@@ -4319,7 +4384,8 @@
           "confirm_other": "Supprimer {{count}} checks",
           "running": "Suppression…",
           "done_one": "1 check supprimé.",
-          "done_other": "{{count}} checks supprimés."
+          "done_other": "{{count}} checks supprimés.",
+          "description": "Supprimer les relevés du collecteur ; l'agent les envoie de nouveau à son prochain relevé."
         }
       }
     }
@@ -4470,7 +4536,8 @@
           "confirm_other": "Attacher",
           "running": "Attachement…",
           "done_one": "{{choice}} attaché à 1 cible.",
-          "done_other": "{{choice}} attaché à {{count}} cibles."
+          "done_other": "{{choice}} attaché à {{count}} cibles.",
+          "description": "Attacher des modulesets ou des rulesets aux objets sélectionnés."
         },
         "detach": {
           "label": "Détacher les attachements sélectionnés",
@@ -4480,7 +4547,8 @@
           "confirm_other": "Détacher {{count}}",
           "running": "Détachement…",
           "done_one": "1 attachement retiré.",
-          "done_other": "{{count}} attachements retirés."
+          "done_other": "{{count}} attachements retirés.",
+          "description": "Détacher les modulesets ou rulesets des attachements sélectionnés."
         }
       }
     }

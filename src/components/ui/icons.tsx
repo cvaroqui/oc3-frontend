@@ -574,6 +574,69 @@ export function SnowflakeIcon(props: IconProps) {
   );
 }
 
+/** Start: a play triangle (fa-play). */
+export function PlayIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M7.5 3.7c-.8-.5-1.8.1-1.8 1v14.6c0 .9 1 1.5 1.8 1l11.7-7.3c.7-.5.7-1.5 0-2L7.5 3.7Z" />
+    </Svg>
+  );
+}
+
+/** Stop: a filled square (fa-stop). */
+export function StopIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="5" y="5" width="14" height="14" rx="2" />
+    </Svg>
+  );
+}
+
+/** Switch over: two opposed arrows (fa-exchange-alt). */
+export function SwapIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M16.3 2.3a1 1 0 0 1 1.4 0l3.6 3.6a1 1 0 0 1 0 1.4l-3.6 3.6a1 1 0 1 1-1.4-1.4l1.9-1.9H4a1 1 0 1 1 0-2h14.2l-1.9-1.9a1 1 0 0 1 0-1.4ZM7.7 12.7a1 1 0 0 1 0 1.4L5.8 16H20a1 1 0 1 1 0 2H5.8l1.9 1.9a1 1 0 1 1-1.4 1.4l-3.6-3.6a1 1 0 0 1 0-1.4l3.6-3.6a1 1 0 0 1 1.4 0Z" />
+    </Svg>
+  );
+}
+
+/** Enable: a switch turned on (fa-toggle-on). */
+export function ToggleOnIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M7 6h10a6 6 0 1 1 0 12H7A6 6 0 1 1 7 6Zm10 2.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" />
+    </Svg>
+  );
+}
+
+/** Disable: a switch turned off (fa-toggle-off). */
+export function ToggleOffIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M7 6h10a6 6 0 1 1 0 12H7A6 6 0 1 1 7 6Zm0 2a4 4 0 1 0 0 8h10a4 4 0 1 0 0-8H7Zm0 1a3 3 0 1 1 0 6 3 3 0 0 1 0-6Z" />
+    </Svg>
+  );
+}
+
+/** Shutdown: the power symbol struck through, apart from boot's plain one. */
+export function PowerOffIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 2.5c.7 0 1.2.5 1.2 1.2v6.6a1.2 1.2 0 1 1-2.4 0V3.7c0-.7.5-1.2 1.2-1.2ZM6.6 5.6a1.2 1.2 0 0 1 .1 1.7 7 7 0 1 0 10.6 0 1.2 1.2 0 1 1 1.8-1.6 9.4 9.4 0 1 1-14.2 0 1.2 1.2 0 0 1 1.7-.1ZM3.4 2l18.6 18.6-1.4 1.4L2 3.4 3.4 2Z" />
+    </Svg>
+  );
+}
+
+/** Unprovision, block: a circle crossed by a bar (fa-ban). */
+export function BanIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20Zm5.6 4.1L6.1 17.6A7.6 7.6 0 0 0 17.6 6.1ZM12 4.4a7.6 7.6 0 0 0-7.6 7.6c0 1.6.5 3.1 1.3 4.3L16.3 5.7A7.6 7.6 0 0 0 12 4.4Z" />
+    </Svg>
+  );
+}
+
 /** Unfreeze: a sun, as the om3 webapp says it. */
 export function SunIcon(props: IconProps) {
   return (

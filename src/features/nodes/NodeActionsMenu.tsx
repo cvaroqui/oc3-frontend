@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -8,34 +7,6 @@ import {
   type DataActionEntry,
 } from "@/components/opensvc/ActionsMenu";
 import { objectDataActions } from "@/components/opensvc/object-data-actions";
-import {
-  BellIcon,
-  CalendarIcon,
-  CheckIcon,
-  CloseIcon,
-  CpuIcon,
-  CubeIcon,
-  DatabaseIcon,
-  DownloadIcon,
-  DropIcon,
-  EyeOffIcon,
-  FileIcon,
-  GearIcon,
-  LineChartIcon,
-  ListChecksIcon,
-  PowerIcon,
-  PuzzleIcon,
-  RefreshIcon,
-  SearchIcon,
-  ShapesIcon,
-  SlidersIcon,
-  SnowflakeIcon,
-  SunIcon,
-  TagIcon,
-  TargetIcon,
-  TrashIcon,
-  UploadIcon,
-} from "@/components/ui/icons";
 import { inBatches } from "@/lib/api/batch";
 import { api } from "@/lib/api/client";
 
@@ -49,81 +20,31 @@ import { api } from "@/lib/api/client";
  * through another node, the provisioning from a template and the root password
  * rotation are not offered, as the API does not accept them.
  *
- * Each action is explained, as in the node actions menu of the om3 webapp
- * (`explained`): its icon, what it does in the foot of its submenu, the ones that
- * stop the services of the node red and badged; a field finds an action by its
- * words. The groups keep their submenus, the menu its size.
+ * Each action is explained, as in the node actions menu of the om3 webapp: its
+ * icon, what it does, the ones that stop the services of the node red and badged
+ * (see ActionsMenu).
  */
-const ICON = "h-4 w-4 shrink-0 text-ink-muted";
-const DANGER_ICON = "h-4 w-4 shrink-0 text-state-down";
-
 const ACTIONS: readonly ActionEntry[] = [
-  { action: "pushasset", group: "refresh", icon: <CpuIcon className={ICON} /> },
-  { action: "checks", group: "refresh", icon: <ListChecksIcon className={ICON} /> },
-  { action: "sysreport", group: "refresh", icon: <FileIcon className={ICON} /> },
-  { action: "pushdisks", group: "refresh", icon: <DatabaseIcon className={ICON} /> },
-  { action: "pushpkg", group: "refresh", icon: <CubeIcon className={ICON} /> },
-  { action: "pushpatch", group: "refresh", icon: <ShapesIcon className={ICON} /> },
-  { action: "pushstats", group: "refresh", icon: <LineChartIcon className={ICON} /> },
-  { action: "compliance_check", group: "compliance", icon: <TargetIcon className={ICON} /> },
-  { action: "compliance_fix", group: "compliance", icon: <CheckIcon className={ICON} /> },
-  { action: "updatecomp", group: "compliance", icon: <DownloadIcon className={ICON} /> },
-  { action: "freeze", group: "orchestration", icon: <SnowflakeIcon className={ICON} /> },
-  { action: "thaw", group: "orchestration", icon: <SunIcon className={ICON} /> },
-  {
-    action: "drain",
-    group: "orchestration",
-    separatorBefore: true,
-    icon: <DropIcon className={DANGER_ICON} />,
-    danger: true,
-    impacts: ["downTime"],
-  },
-  { action: "updatepkg", group: "maintenance", icon: <UploadIcon className={ICON} /> },
-  { action: "scanscsi", group: "maintenance", icon: <SearchIcon className={ICON} /> },
-  {
-    action: "schedule_reboot",
-    group: "power",
-    separatorBefore: true,
-    icon: <CalendarIcon className={ICON} />,
-  },
-  { action: "unschedule_reboot", group: "power", icon: <CloseIcon className={ICON} /> },
-  {
-    action: "reboot",
-    group: "power",
-    separatorBefore: true,
-    icon: <RefreshIcon className={DANGER_ICON} />,
-    danger: true,
-    impacts: ["downTime"],
-  },
-  {
-    action: "shutdown",
-    group: "power",
-    icon: <PowerIcon className={DANGER_ICON} />,
-    danger: true,
-    impacts: ["downTime"],
-  },
+  { action: "pushasset", group: "refresh" },
+  { action: "checks", group: "refresh" },
+  { action: "sysreport", group: "refresh" },
+  { action: "pushdisks", group: "refresh" },
+  { action: "pushpkg", group: "refresh" },
+  { action: "pushpatch", group: "refresh" },
+  { action: "pushstats", group: "refresh" },
+  { action: "compliance_check", group: "compliance" },
+  { action: "compliance_fix", group: "compliance" },
+  { action: "updatecomp", group: "compliance" },
+  { action: "freeze", group: "orchestration" },
+  { action: "thaw", group: "orchestration" },
+  { action: "drain", group: "orchestration", separatorBefore: true },
+  { action: "updatepkg", group: "maintenance" },
+  { action: "scanscsi", group: "maintenance" },
+  { action: "schedule_reboot", group: "power", separatorBefore: true },
+  { action: "unschedule_reboot", group: "power" },
+  { action: "reboot", group: "power", separatorBefore: true },
+  { action: "shutdown", group: "power" },
 ];
-
-/** The icons of the submenus, by group. */
-const GROUP_ICONS: Record<string, ReactNode> = {
-  refresh: <RefreshIcon className={ICON} />,
-  compliance: <TargetIcon className={ICON} />,
-  orchestration: <SnowflakeIcon className={ICON} />,
-  maintenance: <GearIcon className={ICON} />,
-  power: <PowerIcon className={ICON} />,
-  data: <DatabaseIcon className={ICON} />,
-};
-
-/** The icons of the data actions, by key. */
-const DATA_ICONS: Record<string, ReactNode> = {
-  notificationsOn: <BellIcon className={ICON} />,
-  notificationsOff: <EyeOffIcon className={ICON} />,
-  tagAttach: <TagIcon className={ICON} />,
-  modulesetAttach: <PuzzleIcon className={ICON} />,
-  modulesetDetach: <PuzzleIcon className={ICON} />,
-  rulesetAttach: <SlidersIcon className={ICON} />,
-  rulesetDetach: <SlidersIcon className={ICON} />,
-};
 
 /**
  * The agent actions, then the data actions of the historical collector ("Data
@@ -152,15 +73,10 @@ export function NodeActionsMenu({
     ),
   });
   const dataActions: DataActionEntry[] = [
-    ...objectDataActions("node", queryClient).map((entry) => ({
-      ...entry,
-      icon: DATA_ICONS[entry.key],
-    })),
+    ...objectDataActions("node", queryClient),
     {
       key: "delete",
       separatorBefore: true,
-      icon: <TrashIcon className={DANGER_ICON} />,
-      danger: true,
       privileges: ["NodeManager"],
       // Cascades on the collector side: instances, alerts, checks, packages, tags
       // and the other records of the node go with it. By batches: one request per
@@ -185,8 +101,6 @@ export function NodeActionsMenu({
       dataActions={dataActions}
       onCompare={onCompare}
       prefix="nodes.actions"
-      explained
-      groupIcons={GROUP_ICONS}
       // `node_id` alone targets the node, as in the historical collector.
       enqueue={(target, action) => ({ node_id: target.id, action })}
     />
