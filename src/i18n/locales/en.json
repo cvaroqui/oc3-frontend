@@ -276,7 +276,7 @@
         "updatecomp": "Update compliance modules",
         "updatepkg": "Update OpenSVC agent",
         "freeze": "Freeze",
-        "thaw": "Thaw",
+        "thaw": "Unfreeze",
         "reboot": "Reboot",
         "schedule_reboot": "Schedule a reboot",
         "unschedule_reboot": "Unschedule the reboot",
@@ -1010,7 +1010,7 @@
         "switch": "Switch",
         "giveback": "Give back",
         "freeze": "Freeze",
-        "thaw": "Thaw",
+        "thaw": "Unfreeze",
         "abort": "Abort the action",
         "clear": "Clear the failure",
         "push config": "Update service information",
@@ -1938,7 +1938,7 @@
         "syncnodes": "Sync peer remotes",
         "syncdrp": "Sync disaster recovery remotes",
         "freeze": "Freeze",
-        "thaw": "Thaw",
+        "thaw": "Unfreeze",
         "enable": "Enable",
         "disable": "Disable",
         "abort": "Abort the action",
@@ -3828,7 +3828,7 @@
       "failure": "{{name}}: {{message}}",
       "items": {
         "freeze": "Freeze every node",
-        "thaw": "Thaw every node",
+        "thaw": "Unfreeze every node",
         "abort": "Abort the running orchestration"
       }
     }
