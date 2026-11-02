@@ -3679,8 +3679,7 @@
       "kind": "By kind"
     },
     "clear": "Clear the history",
-    "reopen_one": "Reopen the panel on {{name}}",
-    "reopen_other": "Reopen the panel on {{name}} ({{count}} records in the history)"
+    "reopen": "Reopen the panel on {{name}}"
   },
   "realtime": {
     "paused": "Paused",

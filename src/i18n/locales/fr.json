@@ -3679,8 +3679,7 @@
       "kind": "Par type"
     },
     "clear": "Vider l'historique",
-    "reopen_one": "Rouvrir le panneau sur {{name}}",
-    "reopen_other": "Rouvrir le panneau sur {{name}} ({{count}} fiches dans l'historique)"
+    "reopen": "Rouvrir le panneau sur {{name}}"
   },
   "realtime": {
     "paused": "En pause",

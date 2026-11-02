@@ -34,8 +34,8 @@ function useMenuEdge(active: boolean): number {
 
 /**
  * Anchor on the edge of the window the panels open against while no side panel is open: it brings
- * back the detail panel and its history, on the record shown last, or on the first
- * of the history when that one is no longer listed. Nothing to reopen, no anchor.
+ * back the detail panel on the record shown last, or on the first of the history
+ * when that one is no longer listed. Nothing to reopen, no anchor.
  * The "p" key does the same from the keyboard; with a record panel open, it closes
  * it (`SlideOver`). On the left, it stands against the side menu, not over it.
  */
@@ -60,7 +60,7 @@ export function PanelAnchor() {
   });
 
   if (anyOpen || target === undefined) return null;
-  const label = `${t("panelHistory.reopen", { name: name ?? target.id, count: steps.length })} (p)`;
+  const label = `${t("panelHistory.reopen", { name: name ?? target.id })} (p)`;
 
   return (
     <button
@@ -72,16 +72,13 @@ export function PanelAnchor() {
       }}
       // On the edge the panels open against.
       style={side === "left" ? { left: `${String(menuEdge)}px` } : undefined}
-      className={`fixed top-14 z-10 flex items-center gap-1 border border-line bg-surface-raised py-1.5 text-ink-muted shadow-lg hover:text-ink ${
+      className={`fixed top-14 z-10 flex items-center border border-line bg-surface-raised py-1.5 text-ink-muted shadow-lg hover:text-ink ${
         side === "left"
           ? "rounded-r-(--radius-panel) border-l-0 pr-2 pl-1.5"
           : "right-0 rounded-l-(--radius-panel) border-r-0 pr-1.5 pl-2"
       }`}
     >
       <HistoryIcon className="h-4 w-4" />
-      <span aria-hidden="true" className="text-data tabular-nums">
-        {steps.length}
-      </span>
       <span className="sr-only">{label}</span>
     </button>
   );
