@@ -4606,7 +4606,13 @@
       "ended": "Ended",
       "continue": "Acknowledge and continue",
       "continueHint": "Accept the outcome of this step, with a comment, and run the next steps",
-      "acknowledgedBy": "Acknowledged by {{by}}"
+      "acknowledgedBy": "Acknowledged by {{by}}",
+      "cancel": "Cancel the run",
+      "cancelling": "Cancelling…",
+      "cancelQuestion": "Cancel this run for good?",
+      "cancelRunningDetails": "It stops as with Stop, and can no longer be resumed nor continued: the actions still waiting in the queue are cancelled, those an agent already runs finish and their results are kept.",
+      "cancelDetails": "It can no longer be resumed nor continued. To run the workflow again, start a new run.",
+      "cancelledAt": "Cancelled at step {{n}}:"
     },
     "columns": {
       "name": "Name",

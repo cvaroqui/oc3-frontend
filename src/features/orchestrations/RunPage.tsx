@@ -38,7 +38,8 @@ function lastLine(text: string | undefined): string {
  * steps, where the run is; then each step and its targets, the status, return
  * code, duration and last output line of each, a click opening the whole. Live:
  * refreshed by the collector's events while it runs. A run that failed or was
- * stopped says why and what it leaves undone, and resumes from that step.
+ * stopped says why and what it leaves undone, and resumes from that step, unless
+ * it is cancelled: a run cancelled, while it runs or after, never resumes.
  */
 export function RunPage() {
   const { t, i18n } = useTranslation();
@@ -46,6 +47,7 @@ export function RunPage() {
   const id = Number((params as { runId?: string }).runId);
   const run = useRun(id);
   const stop = useRunCommand(id, "stop");
+  const cancelRun = useRunCommand(id, "cancel");
   // "Run again" and "Resume" open a confirmation first, as a run from the editor.
   const [confirm, setConfirm] = useState<"again" | "resume" | "continue" | null>(null);
   const [shown, setShown] = useState<RunTarget | null>(null);
@@ -60,9 +62,11 @@ export function RunPage() {
       (target) => target.status === "queued" || target.status === "running",
     ),
   );
-  const ended = r.status === "failed" || r.status === "stopped";
+  // Ended before its last step: a failed or stopped run may resume, a cancelled one not.
+  const resumable = r.status === "failed" || r.status === "stopped";
+  const ended = resumable || r.status === "cancelled";
   const notRun = r.steps.filter((step) => step.status === "not_run").map((step) => step.step + 1);
-  const error = stop.error;
+  const error = stop.error ?? cancelRun.error;
 
   return (
     <section>
@@ -130,7 +134,25 @@ export function RunPage() {
             {t("orchestrations.run.again")}
           </button>
         )}
-        {ended && (
+        {(r.status === "running" || resumable) && (
+          <ConfirmButton
+            label={`⊘ ${t("orchestrations.run.cancel")}`}
+            question={t("orchestrations.run.cancelQuestion")}
+            details={
+              r.status === "running"
+                ? t("orchestrations.run.cancelRunningDetails")
+                : t("orchestrations.run.cancelDetails")
+            }
+            confirmLabel={t("orchestrations.run.cancel")}
+            cancelLabel={t("detail.cancel")}
+            pendingLabel={t("orchestrations.run.cancelling")}
+            pending={cancelRun.isPending}
+            onConfirm={() => {
+              cancelRun.mutate();
+            }}
+          />
+        )}
+        {resumable && (
           <button
             type="button"
             disabled={inFlight}
@@ -144,7 +166,7 @@ export function RunPage() {
             ↻ {t("orchestrations.run.resume", { n: r.current_step + 1 })}
           </button>
         )}
-        {(r.status === "failed" || r.status === "stopped") && (
+        {resumable && (
           <button
             type="button"
             disabled={inFlight}
@@ -182,7 +204,9 @@ export function RunPage() {
               {t(
                 r.status === "failed"
                   ? "orchestrations.run.failedAt"
-                  : "orchestrations.run.stoppedAt",
+                  : r.status === "cancelled"
+                    ? "orchestrations.run.cancelledAt"
+                    : "orchestrations.run.stoppedAt",
                 {
                   n: r.current_step + 1,
                 },

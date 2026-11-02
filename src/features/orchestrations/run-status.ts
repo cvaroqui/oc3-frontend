@@ -3,7 +3,13 @@ import type { ColumnFilterOption } from "@/components/opensvc/CollectorList";
 import type { RunStatus } from "./api";
 import { RunStatusPill } from "./RunStatusPill";
 
-export const RUN_STATUSES: readonly RunStatus[] = ["running", "succeeded", "failed", "stopped"];
+export const RUN_STATUSES: readonly RunStatus[] = [
+  "running",
+  "succeeded",
+  "failed",
+  "stopped",
+  "cancelled",
+];
 
 /** Whether a value read from a list is the status of a run. */
 export function isRunStatus(value: unknown): value is RunStatus {

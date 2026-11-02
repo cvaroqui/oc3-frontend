@@ -5363,6 +5363,32 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/orchestration_runs/{run_id}/cancel": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the orchestration run */
+        run_id: components["parameters"]["inPathOrchestrationRunId"];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * @description Cancel a run, for good: a running run stops as with POST
+     *     /orchestration_runs/{run_id}/stop, a failed or stopped run ends there.
+     *     A cancelled run neither resumes nor goes on past its step. An action an
+     *     agent already runs goes on and its result is recorded. 409 when the run
+     *     is neither running, failed nor stopped. Manager only.
+     */
+    post: operations["PostOrchestrationRunCancel"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/orchestrations": {
     parameters: {
       query?: never;
@@ -9942,8 +9968,13 @@ export interface components {
       /** @description Its steps succeeded, or failed and acknowledged. */
       steps_done?: number;
     };
-    /** @enum {string} */
-    OrchestrationRunStatus: "running" | "succeeded" | "failed" | "stopped";
+    /**
+     * @description cancelled: the run was stopped for good, while running or after it failed
+     *     or was stopped: it neither resumes nor goes on (see POST
+     *     /orchestration_runs/{run_id}/cancel).
+     * @enum {string}
+     */
+    OrchestrationRunStatus: "running" | "succeeded" | "failed" | "stopped" | "cancelled";
     OrchestrationRunStep: {
       /** @description Why the failure was acknowledged */
       ack_comment?: string;
@@ -27511,6 +27542,34 @@ export interface operations {
     };
   };
   PostOrchestrationRunStop: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the orchestration run */
+        run_id: components["parameters"]["inPathOrchestrationRunId"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OrchestrationRun"];
+        };
+      };
+      401: components["responses"]["401"];
+      403: components["responses"]["403"];
+      404: components["responses"]["404"];
+      409: components["responses"]["409"];
+      500: components["responses"]["500"];
+    };
+  };
+  PostOrchestrationRunCancel: {
     parameters: {
       query?: never;
       header?: never;

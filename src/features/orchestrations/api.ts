@@ -196,8 +196,8 @@ export function useRun(id: number) {
   });
 }
 
-/** Stops or resumes a run. */
-export function useRunCommand(id: number, command: "stop" | "resume") {
+/** Stops, cancels or resumes a run. */
+export function useRunCommand(id: number, command: "stop" | "cancel" | "resume") {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
@@ -206,9 +206,13 @@ export function useRunCommand(id: number, command: "stop" | "resume") {
           ? await api.POST("/orchestration_runs/{run_id}/stop", {
               params: { path: { run_id: id } },
             })
-          : await api.POST("/orchestration_runs/{run_id}/resume", {
-              params: { path: { run_id: id } },
-            });
+          : command === "cancel"
+            ? await api.POST("/orchestration_runs/{run_id}/cancel", {
+                params: { path: { run_id: id } },
+              })
+            : await api.POST("/orchestration_runs/{run_id}/resume", {
+                params: { path: { run_id: id } },
+              });
       if (error !== undefined) return fail(error);
       return data;
     },

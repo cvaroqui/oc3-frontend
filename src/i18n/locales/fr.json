@@ -4606,7 +4606,13 @@
       "ended": "Terminée",
       "continue": "Acquitter et continuer",
       "continueHint": "Accepter l'issue de cette étape, avec un commentaire, et mener les étapes suivantes",
-      "acknowledgedBy": "Acquittée par {{by}}"
+      "acknowledgedBy": "Acquittée par {{by}}",
+      "cancel": "Annuler l'exécution",
+      "cancelling": "Annulation…",
+      "cancelQuestion": "Annuler définitivement cette exécution ?",
+      "cancelRunningDetails": "Elle s'arrête comme avec Arrêter, et ne peut plus être reprise ni continuée : les actions encore en file sont annulées, celles qu'un agent mène déjà se terminent et leurs résultats sont gardés.",
+      "cancelDetails": "Elle ne peut plus être reprise ni continuée. Pour relancer le workflow, démarrez une nouvelle exécution.",
+      "cancelledAt": "Annulée à l'étape {{n}} :"
     },
     "columns": {
       "name": "Nom",
