@@ -2575,7 +2575,11 @@
       "noCandidateMatch": "No candidate matches.",
       "entryName": "{{label}} {{index}}",
       "removeEntry": "Remove entry {{index}}",
-      "connectorUnsaved": "Its choices come from an external API through a connector: they show once the form is saved."
+      "connectorUnsaved": "Its choices come from an external API through a connector: they show once the form is saved.",
+      "candidatesTruncated": "Only the first {{count}} candidates are listed: type to narrow among them.",
+      "addCandidate": "Add a value",
+      "removeChoice": "Remove",
+      "removeChoiceNamed": "Remove {{name}}"
     },
     "definitionMore_one": "+{{count}} more line",
     "definitionMore_other": "+{{count}} more lines",

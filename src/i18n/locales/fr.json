@@ -2575,7 +2575,11 @@
       "noCandidateMatch": "Aucun candidat ne correspond.",
       "entryName": "{{label}} {{index}}",
       "removeEntry": "Retirer l'entrée {{index}}",
-      "connectorUnsaved": "Ses choix viennent d'une API externe, par un connecteur : ils s'affichent une fois le formulaire enregistré."
+      "connectorUnsaved": "Ses choix viennent d'une API externe, par un connecteur : ils s'affichent une fois le formulaire enregistré.",
+      "candidatesTruncated": "Seuls les {{count}} premiers candidats sont listés : tapez pour filtrer parmi eux.",
+      "addCandidate": "Ajouter une valeur",
+      "removeChoice": "Retirer",
+      "removeChoiceNamed": "Retirer {{name}}"
     },
     "definitionMore_one": "+{{count}} ligne",
     "definitionMore_other": "+{{count}} lignes",

@@ -39,6 +39,8 @@ import {
   type FormUser,
   type GroupState,
   type InputValue,
+  candidatesQuery,
+  CANDIDATES_LIMIT,
 } from "./form-engine";
 import { useFormDefinitionByName } from "./use-form";
 
@@ -541,6 +543,8 @@ function useRestCandidates(
   const query = Object.fromEntries(
     Object.entries(args).filter(([, v]) => (Array.isArray(v) ? v.length > 0 : true)),
   );
+  // Through a connector, the Args are oc3's to read; otherwise they are those of
+  // the historical API, translated for the oc3 one.
   const external = input.connector !== "";
   return useQuery({
     queryKey: external
@@ -559,7 +563,7 @@ function useRestCandidates(
         if (error !== undefined) throw new Error(problemText(error));
         return restCandidates(input, answer.data, args);
       }
-      const response = await apiGetDynamic(path ?? "", query);
+      const response = await apiGetDynamic(path ?? "", candidatesQuery(query));
       if (response.status >= 300) throw new Error(problemText(response.body));
       const body = response.body;
       const rows =
@@ -659,6 +663,13 @@ function InputControl({
       </p>
     ) : rest.isFetching ? (
       <p className="mt-1 text-ink-muted">{t("forms.render.candidatesLoading")}</p>
+    ) : candidates !== undefined &&
+      input.connector === "" &&
+      !input.args.some((arg) => /^\s*limit\s*=/.test(arg)) &&
+      candidates.length >= CANDIDATES_LIMIT ? (
+      <p className="mt-1 text-ink-muted">
+        {t("forms.render.candidatesTruncated", { count: candidates.length })}
+      </p>
     ) : candidatesPath(input, data, user) === null ? (
       <p className="mt-1 text-ink-muted">{t("forms.render.candidatesWaiting")}</p>
     ) : input.connector !== "" && formId === undefined ? (
@@ -797,31 +808,55 @@ function InputControl({
           {candidateStatus}
         </>
       );
+    // Several choices: the chosen ones as tags, each removable, and a list
+    // filtered by typing to add one more, as the select2 tags of the historical
+    // renderer.
+    const remaining = options.filter((o) => !selected.includes(o.id));
     return (
       <>
-        <select
-          {...common}
-          multiple={input.multiple}
-          value={input.multiple ? selected : (selected[0] ?? "")}
-          onChange={(event) => {
-            pick([...event.target.selectedOptions].map((o) => o.value));
+        {selected.length > 0 && (
+          <ul className="mb-1 flex flex-wrap gap-1" aria-label={accessibleName}>
+            {selected.map((v) => (
+              <li
+                key={v}
+                className="flex items-center gap-1 rounded-(--radius-control) border border-line bg-surface-sunken py-0.5 pr-1 pl-2"
+              >
+                {options.find((o) => o.id === v)?.text ?? v}
+                {!input.readOnly && (
+                  <button
+                    type="button"
+                    title={t("forms.render.removeChoice")}
+                    aria-label={t("forms.render.removeChoiceNamed", {
+                      name: options.find((o) => o.id === v)?.text ?? v,
+                    })}
+                    onClick={() => {
+                      pick(selected.filter((other) => other !== v));
+                    }}
+                    className="rounded-(--radius-control) p-0.5 text-ink-muted hover:bg-surface hover:text-ink"
+                  >
+                    <CloseIcon className="h-3 w-3" />
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        <Combobox
+          id={id}
+          style={style}
+          disabled={input.readOnly || remaining.length === 0}
+          invalid={invalid}
+          describedBy={describedBy}
+          label={accessibleName}
+          options={remaining.map((o) => ({ value: o.id, label: o.text }))}
+          value=""
+          onChange={(v) => {
+            if (v !== "") pick([...selected, v]);
           }}
-          className={`w-full rounded-(--radius-control) border ${border} bg-surface px-2 text-ink ${input.multiple ? "min-h-24 py-1" : "h-8"}`}
-        >
-          {!input.multiple && (input.disableAutoDefault || selected[0] === "") && (
-            <option value="">{input.placeholder || t("forms.render.selectCandidate")}</option>
-          )}
-          {extra.map((v) => (
-            <option key={`extra-${v}`} value={v}>
-              {v}
-            </option>
-          ))}
-          {options.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.text}
-            </option>
-          ))}
-        </select>
+          placeholder={input.placeholder || t("forms.render.addCandidate")}
+          emptyText={t("forms.render.noCandidateMatch")}
+          inputClassName="h-8"
+        />
         {candidateStatus}
       </>
     );

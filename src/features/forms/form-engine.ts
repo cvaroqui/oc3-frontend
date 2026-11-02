@@ -343,6 +343,95 @@ export function prepareArgs(
   return out;
 }
 
+/** Candidates fetched at most, when the Args of the input do not set a limit. */
+export const CANDIDATES_LIMIT = 500;
+
+/**
+ * The query of a rest candidates call: the Args of the input, the filters of the
+ * historical collector translated into oc3 list filters (`legacyFilter`), and a
+ * limit, which the historical renderer set by pages of 10 and oc3 sets to 50 when
+ * none is given. Throws when a filter has no oc3 equivalent: better to say so
+ * than to offer candidates the form meant to leave out.
+ */
+export function candidatesQuery(
+  args: Record<string, string | string[]>,
+): Record<string, string | string[]> {
+  const query: Record<string, string | string[]> = {};
+  const filter: string[] = [];
+  for (const [key, value] of Object.entries(args)) {
+    const values = Array.isArray(value) ? value : [value];
+    if (key === "filters") filter.push(...values.flatMap(legacyFilter));
+    else if (key === "filter") filter.push(...values);
+    else query[key] = value;
+  }
+  if (filter.length > 0) query.filter = filter;
+  if (query.limit === undefined) query.limit = String(CANDIDATES_LIMIT);
+  return query;
+}
+
+/**
+ * The oc3 list filters ("prop:expr") of a filter of the historical collector,
+ * "prop expr", as _where() reads the expression: chunks joined by & (all) or |
+ * (any), each negated by a leading "!", one of "empty", "(a,b)" (one of), ">v",
+ * "<v", "=v", a LIKE pattern when it holds a % (where _ is any character too),
+ * or a value, equal. Several & chunks
+ * make as many oc3 filters, which combine with AND; | chunks of values and
+ * patterns make one regular expression. A mix of & and |, which _where() leaves
+ * out rather than guess the order, filters nothing, as there; "%" alone too.
+ */
+export function legacyFilter(raw: string): string[] {
+  const prop = /^[.\w]+/.exec(raw)?.[0];
+  if (prop === undefined) throw new Error(`invalid filter "${raw}": no property`);
+  let expr = raw.slice(prop.length).trim();
+  if (expr.startsWith("|")) expr = expr.slice(1);
+  if (expr === "" || expr === "%" || (expr.includes("&") && expr.includes("|"))) return [];
+  if (expr.includes("|")) {
+    const alternatives = expr.split("|").filter((chunk) => chunk !== "");
+    const fragments = alternatives.map((chunk) => {
+      const fragment = chunkRegex(chunk);
+      if (fragment === null)
+        throw new Error(`unsupported filter "${raw}": "${chunk}" in an alternative`);
+      return fragment;
+    });
+    return [`${prop}:~^(${fragments.join("|")})$`];
+  }
+  return expr
+    .split("&")
+    .filter((chunk) => chunk !== "")
+    .map((chunk) => `${prop}:${legacyChunk(chunk)}`);
+}
+
+/** The oc3 filter expression of one chunk of a historical filter. */
+function legacyChunk(chunk: string): string {
+  if (chunk.startsWith("!") && chunk.length > 1) return `!${legacyChunk(chunk.slice(1))}`;
+  if (chunk === "empty" || chunk === "=empty") return "empty";
+  if (chunk.length > 2 && chunk.startsWith("(") && chunk.endsWith(")"))
+    return `in:${chunk.slice(1, -1)}`;
+  const op = /^(>=|<=|[<>=])/.exec(chunk)?.[0];
+  if (op !== undefined) {
+    const value = chunk.slice(op.length);
+    return `${{ ">=": "gte", "<=": "lte", ">": "gt", "<": "lt", "=": "eq" }[op]}:${value}`;
+  }
+  const value = chunk.replace(/^~/, "");
+  return value.includes("%") ? `~^${likeRegex(value)}$` : `eq:${value}`;
+}
+
+/** A value or a LIKE pattern as a fragment of regular expression; null for anything else. */
+function chunkRegex(chunk: string): string | null {
+  if (chunk.startsWith("!") || chunk === "empty" || /^[<>=(]/.test(chunk)) return null;
+  const value = chunk.replace(/^~/, "");
+  return value.includes("%") ? likeRegex(value) : escapeRegex(value);
+}
+
+/** A LIKE pattern as a regular expression: % any text, _ one character. */
+function likeRegex(pattern: string): string {
+  return [...pattern].map((c) => (c === "%" ? ".*" : c === "_" ? "." : escapeRegex(c))).join("");
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /**
  * The rest path of dynamic candidates, references replaced; null while data is
  * missing to build it, as getUrlFunc() cancels the call.
