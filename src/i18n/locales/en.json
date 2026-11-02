@@ -314,7 +314,8 @@
           "confirm_other": "Delete {{count}} nodes",
           "running": "Deleting…",
           "done_one": "1 node deleted.",
-          "done_other": "{{count}} nodes deleted."
+          "done_other": "{{count}} nodes deleted.",
+          "description": "Remove the node and all its records from the collector: instances, alerts, checks, packages, tags."
         },
         "notificationsOn": {
           "label": "Turn notifications on",
@@ -324,7 +325,8 @@
           "confirm_other": "Turn on for {{count}} nodes",
           "running": "Turning on…",
           "done_one": "Notifications turned on for 1 node.",
-          "done_other": "Notifications turned on for {{count}} nodes."
+          "done_other": "Notifications turned on for {{count}} nodes.",
+          "description": "The collector sends the notifications of the node again."
         },
         "notificationsOff": {
           "label": "Turn notifications off",
@@ -334,7 +336,8 @@
           "confirm_other": "Turn off for {{count}} nodes",
           "running": "Turning off…",
           "done_one": "Notifications turned off for 1 node.",
-          "done_other": "Notifications turned off for {{count}} nodes."
+          "done_other": "Notifications turned off for {{count}} nodes.",
+          "description": "The collector stops sending the notifications of the node."
         },
         "tagAttach": {
           "label": "Attach a tag",
@@ -345,7 +348,8 @@
           "running": "Attaching…",
           "done_one": "Tag {{choice}} attached to 1 node.",
           "done_other": "Tag {{choice}} attached to {{count}} nodes.",
-          "choice": "Tag"
+          "choice": "Tag",
+          "description": "Attach a tag to the node."
         },
         "modulesetAttach": {
           "label": "Attach a moduleset",
@@ -356,7 +360,8 @@
           "running": "Attaching…",
           "done_one": "Moduleset {{choice}} attached to 1 node.",
           "done_other": "Moduleset {{choice}} attached to {{count}} nodes.",
-          "choice": "Moduleset"
+          "choice": "Moduleset",
+          "description": "Attach a compliance moduleset to the node."
         },
         "modulesetDetach": {
           "label": "Detach a moduleset",
@@ -367,7 +372,8 @@
           "running": "Detaching…",
           "done_one": "Moduleset {{choice}} detached from 1 node.",
           "done_other": "Moduleset {{choice}} detached from {{count}} nodes.",
-          "choice": "Moduleset"
+          "choice": "Moduleset",
+          "description": "Detach a compliance moduleset from the node."
         },
         "rulesetAttach": {
           "label": "Attach a ruleset",
@@ -378,7 +384,8 @@
           "running": "Attaching…",
           "done_one": "Ruleset {{choice}} attached to 1 node.",
           "done_other": "Ruleset {{choice}} attached to {{count}} nodes.",
-          "choice": "Ruleset (explicit and public)"
+          "choice": "Ruleset (explicit and public)",
+          "description": "Attach a compliance ruleset to the node."
         },
         "rulesetDetach": {
           "label": "Detach a ruleset",
@@ -389,8 +396,30 @@
           "running": "Detaching…",
           "done_one": "Ruleset {{choice}} detached from 1 node.",
           "done_other": "Ruleset {{choice}} detached from {{count}} nodes.",
-          "choice": "Ruleset (explicit and public)"
+          "choice": "Ruleset (explicit and public)",
+          "description": "Detach a compliance ruleset from the node."
         }
+      },
+      "descriptions": {
+        "pushasset": "The agent sends the hardware and system inventory of the node to the collector.",
+        "checks": "The agent reads its checks (file systems, links, multipaths…) and sends their values.",
+        "sysreport": "The agent sends the system report: the changes of the files it follows.",
+        "pushdisks": "The agent sends the disks of the node and their use.",
+        "pushpkg": "The agent sends the packages installed on the node.",
+        "pushpatch": "The agent sends the patches installed on the node.",
+        "pushstats": "The agent sends its performance statistics.",
+        "compliance_check": "Check the compliance modules attached to the node, changing nothing.",
+        "compliance_fix": "Fix what the compliance modules attached to the node find wrong.",
+        "updatecomp": "Update the compliance modules on the node.",
+        "freeze": "The daemon stops orchestrating the instances of the node.",
+        "thaw": "The daemon orchestrates the instances of the node again.",
+        "drain": "Freeze the node and stop every instance it hosts.",
+        "updatepkg": "Update the OpenSVC agent of the node from its repository.",
+        "scanscsi": "Look for new disks on the SCSI buses.",
+        "schedule_reboot": "The node reboots at its next reboot schedule.",
+        "unschedule_reboot": "The scheduled reboot does not happen.",
+        "reboot": "Reboot the node now: the instances it hosts stop.",
+        "shutdown": "Power the node off: the instances it hosts stop."
       }
     },
     "hardware": {
@@ -3900,7 +3929,13 @@
     "choiceNone": "Nothing matches.",
     "checking": "Checking where they are used…",
     "acknowledge_one": "I understand that this use is removed with it",
-    "acknowledge_other": "I understand that these uses are removed with them"
+    "acknowledge_other": "I understand that these uses are removed with them",
+    "impacts": {
+      "downTime": "down-time",
+      "dataLoss": "data loss"
+    },
+    "filter": "Filter the actions",
+    "noMatch": "No action matches."
   },
   "commonality": {
     "title": "Commonality of {{what}}",

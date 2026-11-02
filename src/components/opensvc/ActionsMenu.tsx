@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Combobox, type ComboboxOption } from "@/components/ui/Combobox";
 import { MenuButton, type MenuItem } from "@/components/ui/MenuButton";
-import { CloseIcon, GearIcon } from "@/components/ui/icons";
+import { CloseIcon, ColumnsIcon, GearIcon } from "@/components/ui/icons";
 import { NOTICE_CARD, NOTICE_TONES, type NoticeTone } from "@/components/ui/notice-tones";
 import { InNoticeRegion } from "@/components/ui/NoticeRegion";
 import { nextNoticeId, noticeTime, useAutoDismiss } from "@/components/ui/use-auto-dismiss";
@@ -29,7 +29,19 @@ export interface ActionEntry {
    * is in the list.
    */
   group?: string;
+  /** Its icon, in a menu that explains its entries (`explained`). */
+  icon?: ReactNode;
+  /** An action that harms, red in a menu that explains its entries. */
+  danger?: boolean;
+  /** What it costs, badged in a menu that explains its entries: `actionsMenu.impacts.<impact>`. */
+  impacts?: readonly ActionImpact[];
 }
+
+/** What an action costs: services stopped for a while, data lost. */
+export type ActionImpact = "downTime" | "dataLoss";
+
+/** The tint of the badge of each impact. */
+const IMPACT_TONE: Record<ActionImpact, "down" | "warn"> = { dataLoss: "down", downTime: "warn" };
 
 /**
  * An entry of the "Data actions" submenu: a change made on the collector's own
@@ -54,6 +66,10 @@ export interface DataActionEntry {
   tone?: "destructive" | "change";
   /** Separator line before this entry in the submenu. */
   separatorBefore?: boolean;
+  /** Its icon, in a menu that explains its entries (`explained`). */
+  icon?: ReactNode;
+  /** An entry that harms, such as a deletion: red in a menu that explains its entries. */
+  danger?: boolean;
   /** Something to choose in the confirmation, applied to every object: a tag, a moduleset… */
   choice?: DataActionChoice;
   /**
@@ -131,6 +147,9 @@ function outcomeTone(outcome: Outcome): NoticeTone {
 const CONFIRM_CARD =
   "absolute top-full left-0 z-30 mt-2 flex w-max max-w-[min(32rem,calc(100vw-2rem))] flex-wrap items-center gap-2 rounded-(--radius-panel) border border-line bg-surface-raised p-3 shadow-lg";
 
+/** The icon of an entry of a menu that explains its entries. */
+const EXPLAINED_ICON = "h-4 w-4 shrink-0 text-ink-muted";
+
 /** The queue of a menu without agent actions, never called. */
 const noQueue = (): Promise<string | null> => Promise.resolve(null);
 
@@ -165,6 +184,13 @@ type Pending = { kind: "queue"; action: string } | { kind: "data"; entry: DataAc
  * The confirmation opens as a card anchored under the button, over what follows:
  * the row of the button keeps its height and the button its place, in a list
  * toolbar as in a panel header.
+ *
+ * `explained` borrows from the action menus of the om3 webapp, the submenus
+ * kept: each entry with its icon, each group with the icon given for it
+ * (`groupIcons`), the harmful entries red and what they cost badged; what an
+ * entry does (`<prefix>.descriptions.<action>`, `<prefix>.data.<key>.description`)
+ * said in the foot of its submenu while it is hovered or focused; a field over the
+ * menu finding the entries by their words, in whatever submenu they are.
  */
 /**
  * The privileges the API asks of an agent action queued by `PUT /actions`, as
@@ -183,6 +209,8 @@ export function ActionsMenu({
   enqueue,
   dataActions = [],
   onCompare,
+  explained = false,
+  groupIcons = {},
 }: {
   targets: ActionTarget[];
   /** Agent actions; none for an object the agents do not act on, such as an alert. */
@@ -203,6 +231,10 @@ export function ActionsMenu({
    * actions, which change something, as it only reads.
    */
   onCompare?: () => void;
+  /** Each entry explained, as the action menus of the om3 webapp: see above. */
+  explained?: boolean;
+  /** With `explained`, the icon of each group's submenu, and of the data actions' (`data`). */
+  groupIcons?: Readonly<Record<string, ReactNode>>;
 }) {
   const { t, i18n } = useTranslation();
   const [pending, setPending] = useState<Pending | null>(null);
@@ -310,6 +342,21 @@ export function ActionsMenu({
       : t(`${prefix}.items.${entry.action}`),
     separatorBefore: entry.separatorBefore === true,
     disabled: busy,
+    ...(explained
+      ? {
+          icon: entry.icon,
+          danger: entry.danger === true,
+          description: i18n.exists(`${prefix}.descriptions.${entry.action}`)
+            ? t(`${prefix}.descriptions.${entry.action}`)
+            : undefined,
+          badges: (entry.impacts ?? []).map((impact) => ({
+            key: impact,
+            label: t(`actionsMenu.impacts.${impact}`),
+            tone: IMPACT_TONE[impact],
+          })),
+          keywords: [entry.action, t(`${prefix}.items.${entry.action}`)],
+        }
+      : {}),
     onSelect: () => {
       setOutcome(null);
       setPending({ kind: "queue", action: entry.action });
@@ -338,6 +385,7 @@ export function ActionsMenu({
         key: `group:${entry.group}`,
         label: t(`${prefix}.groups.${entry.group}`),
         separatorBefore: entry.separatorBefore === true,
+        icon: explained ? groupIcons[entry.group] : undefined,
         items: [],
       };
       submenus.set(entry.group, submenu);
@@ -355,27 +403,40 @@ export function ActionsMenu({
       separatorBefore: true,
       disabled: busy,
       onSelect: onCompare,
+      icon: explained ? <ColumnsIcon className={EXPLAINED_ICON} /> : undefined,
     });
 
   // Shown once the privileges are known: an entry must not appear then vanish.
   const allowed = dataActions.filter(
     (entry) => privileges.data !== undefined && hasPrivilege(privileges.data, entry.privileges),
   );
+  const dataItemOf = (entry: DataActionEntry, index: number): MenuItem => ({
+    key: `data:${entry.key}`,
+    label: t(`${prefix}.data.${entry.key}.label`),
+    separatorBefore: index > 0 && entry.separatorBefore === true,
+    disabled: busy,
+    ...(explained
+      ? {
+          icon: entry.icon,
+          danger: entry.danger === true,
+          description: i18n.exists(`${prefix}.data.${entry.key}.description`)
+            ? t(`${prefix}.data.${entry.key}.description`)
+            : undefined,
+          keywords: [entry.key],
+        }
+      : {}),
+    onSelect: () => {
+      setOutcome(null);
+      setPending({ kind: "data", entry });
+    },
+  });
   if (allowed.length > 0)
     items.push({
       key: "group:data",
       label: t("actionsMenu.dataActions"),
       separatorBefore: true,
-      items: allowed.map((entry, index) => ({
-        key: `data:${entry.key}`,
-        label: t(`${prefix}.data.${entry.key}.label`),
-        separatorBefore: index > 0 && entry.separatorBefore === true,
-        disabled: busy,
-        onSelect: () => {
-          setOutcome(null);
-          setPending({ kind: "data", entry });
-        },
-      })),
+      icon: explained ? groupIcons.data : undefined,
+      items: allowed.map(dataItemOf),
     });
 
   // Nothing the user may do here, or not known yet: no menu, rather than an empty one.
@@ -395,6 +456,13 @@ export function ActionsMenu({
           // historical actions (`action16`).
           prominent
           icon={<GearIcon className="h-3.5 w-3.5" />}
+          {...(explained
+            ? {
+                filterable: true,
+                filterLabel: t("actionsMenu.filter"),
+                filterEmpty: t("actionsMenu.noMatch"),
+              }
+            : {})}
         />
       )}
 

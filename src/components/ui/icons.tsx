@@ -574,6 +574,24 @@ export function SnowflakeIcon(props: IconProps) {
   );
 }
 
+/** Unfreeze: a sun, as the om3 webapp says it. */
+export function SunIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0-6a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0V2a1 1 0 0 1 1-1Zm0 18a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0v-2a1 1 0 0 1 1-1ZM2 11h2a1 1 0 1 1 0 2H2a1 1 0 1 1 0-2Zm18 0h2a1 1 0 1 1 0 2h-2a1 1 0 1 1 0-2ZM4.9 3.5l1.4 1.4a1 1 0 0 1-1.4 1.4L3.5 4.9a1 1 0 0 1 1.4-1.4Zm12.8 12.8 1.4 1.4a1 1 0 0 1-1.4 1.4l-1.4-1.4a1 1 0 0 1 1.4-1.4ZM19.1 3.5a1 1 0 0 1 0 1.4l-1.4 1.4a1 1 0 0 1-1.4-1.4l1.4-1.4a1 1 0 0 1 1.4 0ZM6.3 16.3a1 1 0 0 1 0 1.4l-1.4 1.4a1 1 0 0 1-1.4-1.4l1.4-1.4a1 1 0 0 1 1.4 0Z" />
+    </Svg>
+  );
+}
+
+/** Drain: a drop, as the om3 webapp says it. */
+export function DropIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 2.3c.4 0 .7.2.9.5 1.4 2.1 6.6 8.5 6.6 12.2a7.5 7.5 0 0 1-15 0c0-3.7 5.2-10.1 6.6-12.2.2-.3.5-.5.9-.5Z" />
+    </Svg>
+  );
+}
+
 /*
  * Glyphs of the historical icon classes a form definition names (LabelCss, Css,
  * FolderCss), translated by src/components/opensvc/legacy-css.ts.

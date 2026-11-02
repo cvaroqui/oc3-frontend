@@ -314,7 +314,8 @@
           "confirm_other": "Supprimer {{count}} nœuds",
           "running": "Suppression…",
           "done_one": "1 nœud supprimé.",
-          "done_other": "{{count}} nœuds supprimés."
+          "done_other": "{{count}} nœuds supprimés.",
+          "description": "Retirer le nœud et tous ses enregistrements du collecteur : instances, alertes, relevés, paquets, tags."
         },
         "notificationsOn": {
           "label": "Activer les notifications",
@@ -324,7 +325,8 @@
           "confirm_other": "Activer pour {{count}} nœuds",
           "running": "Activation…",
           "done_one": "Notifications activées pour 1 nœud.",
-          "done_other": "Notifications activées pour {{count}} nœuds."
+          "done_other": "Notifications activées pour {{count}} nœuds.",
+          "description": "Le collecteur envoie de nouveau les notifications du nœud."
         },
         "notificationsOff": {
           "label": "Désactiver les notifications",
@@ -334,7 +336,8 @@
           "confirm_other": "Désactiver pour {{count}} nœuds",
           "running": "Désactivation…",
           "done_one": "Notifications désactivées pour 1 nœud.",
-          "done_other": "Notifications désactivées pour {{count}} nœuds."
+          "done_other": "Notifications désactivées pour {{count}} nœuds.",
+          "description": "Le collecteur cesse d'envoyer les notifications du nœud."
         },
         "tagAttach": {
           "label": "Attacher un tag",
@@ -345,7 +348,8 @@
           "running": "Rattachement…",
           "done_one": "Tag {{choice}} attaché à 1 nœud.",
           "done_other": "Tag {{choice}} attaché à {{count}} nœuds.",
-          "choice": "Tag"
+          "choice": "Tag",
+          "description": "Attacher un tag au nœud."
         },
         "modulesetAttach": {
           "label": "Attacher un moduleset",
@@ -356,7 +360,8 @@
           "running": "Rattachement…",
           "done_one": "Moduleset {{choice}} attaché à 1 nœud.",
           "done_other": "Moduleset {{choice}} attaché à {{count}} nœuds.",
-          "choice": "Moduleset"
+          "choice": "Moduleset",
+          "description": "Attacher un moduleset de conformité au nœud."
         },
         "modulesetDetach": {
           "label": "Détacher un moduleset",
@@ -367,7 +372,8 @@
           "running": "Détachement…",
           "done_one": "Moduleset {{choice}} détaché de 1 nœud.",
           "done_other": "Moduleset {{choice}} détaché de {{count}} nœuds.",
-          "choice": "Moduleset"
+          "choice": "Moduleset",
+          "description": "Détacher un moduleset de conformité du nœud."
         },
         "rulesetAttach": {
           "label": "Attacher un ruleset",
@@ -378,7 +384,8 @@
           "running": "Rattachement…",
           "done_one": "Ruleset {{choice}} attaché à 1 nœud.",
           "done_other": "Ruleset {{choice}} attaché à {{count}} nœuds.",
-          "choice": "Ruleset (explicite et public)"
+          "choice": "Ruleset (explicite et public)",
+          "description": "Attacher un ruleset de conformité au nœud."
         },
         "rulesetDetach": {
           "label": "Détacher un ruleset",
@@ -389,8 +396,30 @@
           "running": "Détachement…",
           "done_one": "Ruleset {{choice}} détaché de 1 nœud.",
           "done_other": "Ruleset {{choice}} détaché de {{count}} nœuds.",
-          "choice": "Ruleset (explicite et public)"
+          "choice": "Ruleset (explicite et public)",
+          "description": "Détacher un ruleset de conformité du nœud."
         }
+      },
+      "descriptions": {
+        "pushasset": "L'agent envoie l'inventaire matériel et système du nœud au collecteur.",
+        "checks": "L'agent relève ses checks (systèmes de fichiers, liens, multipath…) et envoie leurs valeurs.",
+        "sysreport": "L'agent envoie le rapport système : les changements des fichiers qu'il suit.",
+        "pushdisks": "L'agent envoie les disques du nœud et leur usage.",
+        "pushpkg": "L'agent envoie les paquets installés sur le nœud.",
+        "pushpatch": "L'agent envoie les correctifs installés sur le nœud.",
+        "pushstats": "L'agent envoie ses statistiques de performance.",
+        "compliance_check": "Vérifier les modules de conformité attachés au nœud, sans rien changer.",
+        "compliance_fix": "Corriger ce que les modules de conformité attachés au nœud trouvent en écart.",
+        "updatecomp": "Mettre à jour les modules de conformité sur le nœud.",
+        "freeze": "Le démon cesse d'orchestrer les instances du nœud.",
+        "thaw": "Le démon orchestre de nouveau les instances du nœud.",
+        "drain": "Geler le nœud et arrêter toutes les instances qu'il héberge.",
+        "updatepkg": "Mettre à jour l'agent OpenSVC du nœud depuis son dépôt.",
+        "scanscsi": "Rechercher de nouveaux disques sur les bus SCSI.",
+        "schedule_reboot": "Le nœud redémarre à sa prochaine plage de redémarrage.",
+        "unschedule_reboot": "Le redémarrage programmé n'a pas lieu.",
+        "reboot": "Redémarrer le nœud maintenant : les instances qu'il héberge s'arrêtent.",
+        "shutdown": "Éteindre le nœud : les instances qu'il héberge s'arrêtent."
       }
     },
     "hardware": {
@@ -3900,7 +3929,13 @@
     "choiceNone": "Aucun résultat.",
     "checking": "Vérification de leurs usages…",
     "acknowledge_one": "Je comprends que cet usage est supprimé avec",
-    "acknowledge_other": "Je comprends que ces usages sont supprimés avec"
+    "acknowledge_other": "Je comprends que ces usages sont supprimés avec",
+    "impacts": {
+      "downTime": "interruption",
+      "dataLoss": "perte de données"
+    },
+    "filter": "Filtrer les actions",
+    "noMatch": "Aucune action ne correspond."
   },
   "commonality": {
     "title": "Points communs de {{what}}",
