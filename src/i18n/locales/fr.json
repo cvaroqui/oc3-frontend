@@ -2528,7 +2528,9 @@
         "record": "Enregistrement"
       },
       "noDefinition": "Pas encore de définition.",
-      "tabs": "Onglets du formulaire"
+      "tabs": "Onglets du formulaire",
+      "editHint": "Un FormsManager renomme un formulaire, change son type ou son dossier ici ; la définition se modifie avec Modifier. Chaque modification est écrite aussitôt dans le collecteur.",
+      "nameRequired": "Un formulaire doit avoir un nom."
     },
     "form": {
       "open": "Nouveau formulaire",

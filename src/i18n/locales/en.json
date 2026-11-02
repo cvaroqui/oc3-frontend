@@ -2528,7 +2528,9 @@
         "record": "Record"
       },
       "noDefinition": "No definition yet.",
-      "tabs": "Form tabs"
+      "tabs": "Form tabs",
+      "editHint": "A FormsManager renames a form, changes its type or its folder here; the definition is changed with Edit. Each change is written at once in the collector.",
+      "nameRequired": "A form needs a name."
     },
     "form": {
       "open": "New form",
