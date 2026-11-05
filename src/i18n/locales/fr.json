@@ -3911,12 +3911,14 @@
       "items": {
         "freeze": "Geler tous les nœuds",
         "thaw": "Dégeler tous les nœuds",
-        "abort": "Interrompre l'orchestration en cours"
+        "abort": "Interrompre l'orchestration en cours",
+        "updatepkg": "Mettre à jour l'agent OpenSVC de tous les nœuds"
       },
       "descriptions": {
         "freeze": "Le démon de chaque nœud cesse d'orchestrer ses instances.",
         "thaw": "Le démon de chaque nœud orchestre de nouveau ses instances.",
-        "abort": "Abandonner l'orchestration en cours sur tout le cluster."
+        "abort": "Abandonner l'orchestration en cours sur tout le cluster.",
+        "updatepkg": "Met à jour les paquets opensvc de chaque nœud, un nœud après l'autre : chaque démon redémarre à son tour, les services continuent de tourner. Nécessite un agent om3 récent."
       }
     }
   },

@@ -3911,12 +3911,14 @@
       "items": {
         "freeze": "Freeze every node",
         "thaw": "Unfreeze every node",
-        "abort": "Abort the running orchestration"
+        "abort": "Abort the running orchestration",
+        "updatepkg": "Update the OpenSVC agent of every node"
       },
       "descriptions": {
         "freeze": "The daemon of each node stops orchestrating its instances.",
         "thaw": "The daemon of each node orchestrates its instances again.",
-        "abort": "Abort the orchestration running on the whole cluster."
+        "abort": "Abort the orchestration running on the whole cluster.",
+        "updatepkg": "Upgrade the opensvc packages of every node, one node at a time: each daemon restarts in turn, the services keep running. Requires a recent om3 agent."
       }
     }
   },

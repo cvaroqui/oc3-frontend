@@ -77,7 +77,7 @@ export const KIND_ACTIONS: Record<TargetKind, readonly string[]> = {
     "reboot",
     "shutdown",
   ],
-  cluster: ["freeze", "thaw", "abort"],
+  cluster: ["freeze", "thaw", "abort", "updatepkg"],
 };
 
 /** The actions that interrupt what runs: the run asks for the name to be typed. */
