@@ -1743,6 +1743,13 @@
     }
   },
   "users": {
+    "password": {
+      "open": "Set the password",
+      "hint_one": "The new password of {{email}}, at least {{count}} character. Their current one is not asked for; they sign in with this one from now on.",
+      "hint_other": "The new password of {{email}}, at least {{count}} characters. Their current one is not asked for; they sign in with this one from now on.",
+      "submit": "Set the password",
+      "done": "Password of {{email}} set."
+    },
     "delete": {
       "label": "Delete the user",
       "question": "Delete the user {{email}}?",

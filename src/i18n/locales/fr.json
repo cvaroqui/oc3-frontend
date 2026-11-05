@@ -1743,6 +1743,13 @@
     }
   },
   "users": {
+    "password": {
+      "open": "Définir le mot de passe",
+      "hint_one": "Le nouveau mot de passe de {{email}}, au moins {{count}} caractère. L'actuel n'est pas demandé ; l'utilisateur se connecte désormais avec celui-ci.",
+      "hint_other": "Le nouveau mot de passe de {{email}}, au moins {{count}} caractères. L'actuel n'est pas demandé ; l'utilisateur se connecte désormais avec celui-ci.",
+      "submit": "Définir le mot de passe",
+      "done": "Mot de passe de {{email}} défini."
+    },
     "delete": {
       "label": "Supprimer l'utilisateur",
       "question": "Supprimer l'utilisateur {{email}} ?",

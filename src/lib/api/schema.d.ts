@@ -7187,6 +7187,35 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/users/{user_id}/password": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * @description Set the password of another user, without the current one, as an
+     *     administrator resets it. Requires the UserManager privilege (or Manager);
+     *     the password of a Manager is set by a Manager only. One's own password is
+     *     changed by POST /users/self/password, which asks for the current one (409
+     *     here). Refused with 403 while impersonating, and when password sign-in is
+     *     disabled (server.auth.basic_users false): the password would sign nobody
+     *     in. Refused with 409 for an account linked to an OpenID Connect identity
+     *     (oidc_linked): its password, second factor and deactivation are the
+     *     identity provider's. The new password must be at least 12 characters long;
+     *     it is stored as a web2py hash, accepted by both collectors. The change is
+     *     logged, without the password.
+     */
+    post: operations["PostUserPassword"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/users/{user_id}": {
     parameters: {
       query?: never;
@@ -11006,6 +11035,11 @@ export interface components {
       im_username?: string;
       last_name?: string;
       lock_filter?: string;
+      /**
+       * @description An OpenID Connect identity is linked to the account: its password is
+       *     the identity provider's (POST /users/{user_id}/password refuses it).
+       */
+      oidc_linked?: boolean;
       phone_work?: string;
       quota_app?: string;
       quota_docker_registries?: string;
@@ -32894,6 +32928,44 @@ export interface operations {
         };
       };
       404: components["responses"]["404"];
+      500: components["responses"]["500"];
+    };
+  };
+  PostUserPassword: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description User identifier: auth_user.id, or the user email when it contains an "@". */
+        user_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description At least 12 characters. */
+          new_password: string;
+        };
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            info?: string;
+          };
+        };
+      };
+      400: components["responses"]["400"];
+      401: components["responses"]["401"];
+      403: components["responses"]["403"];
+      404: components["responses"]["404"];
+      409: components["responses"]["409"];
       500: components["responses"]["500"];
     };
   };
