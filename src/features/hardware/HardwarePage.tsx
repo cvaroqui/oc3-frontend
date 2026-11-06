@@ -21,8 +21,10 @@ import {
   visibleProps,
   type ResolvedListSearch,
 } from "@/lib/list-search";
-import { filterQuery, filtersKey } from "@/lib/column-filters";
+import { filterQuery, filtersKey, type ColumnFilters } from "@/lib/column-filters";
+import { STATS_LIMIT, toValueStats, type ValueStats } from "@/lib/api/value-stats";
 import { useViewPrefs, withSavedSearch } from "@/lib/user-prefs";
+import { HardwareDetailPanel } from "./HardwareDetailPanel";
 
 type NodeHardwareRow = components["schemas"]["NodeHardwareRow"];
 
@@ -112,6 +114,17 @@ function queryProps(cols: string[] | undefined): string {
 }
 
 /**
+ * The distribution of a column's values over the selection: the filters given
+ * apply, not the pagination.
+ */
+async function hardwareStats(prop: string, filters: ColumnFilters): Promise<ValueStats> {
+  const query = { props: prop, stats: "1", limit: STATS_LIMIT, filter: filterQuery(filters) };
+  const response = await api.GET("/nodes/hardware", { params: { query } });
+  if (response.error !== undefined) throw new Error(problemText(response.error));
+  return toValueStats(response.data.data, response.data.meta, prop);
+}
+
+/**
  * One page of the list, read with the sort, the filters and the columns of `search`.
  * The view reads the page on display with it, and the export every page in turn.
  */
@@ -152,7 +165,7 @@ function useHardware(search: ResolvedListSearch) {
 /**
  * Hardware of the nodes the user can see, as their agents report it: one row per
  * component (memory bank, PCI device…) of each node. Read-only; the rows are
- * filtered and sorted by the server.
+ * filtered and sorted by the server, and a row opens its component in a panel.
  */
 export function HardwarePage() {
   const { t, i18n } = useTranslation();
@@ -184,6 +197,8 @@ export function HardwarePage() {
     });
   }
 
+  const selected = data?.rows.find((row) => String(row.id) === search.sel);
+
   return (
     <section>
       <h1 className="mb-3 flex items-center gap-2 text-title font-semibold">
@@ -192,14 +207,13 @@ export function HardwarePage() {
       </h1>
 
       <CollectorList
+        viewPrefs={prefs}
         columns={columns(t, (key) => i18n.exists(key))}
         defaultCols={DEFAULT_COLS}
         rows={data?.rows ?? []}
         rowId={(row) => (row.id === undefined ? undefined : String(row.id))}
         search={search}
         onChange={update}
-        // apicollector has no hardware endpoint filtered by filterset.
-        filtersets={[]}
         isPending={isPending}
         isFetching={isFetching}
         errorMessage={isError ? error.message : null}
@@ -207,7 +221,18 @@ export function HardwarePage() {
         exportPage={(page) => fetchHardware({ ...search, ...page })}
         total={data?.total}
         selectAllMatching={allIds}
+        valueStats={hardwareStats}
         filterable
+      />
+
+      <HardwareDetailPanel
+        hwId={search.sel}
+        label={[selected?.["nodes.nodename"], selected?.hw_path]
+          .filter((part): part is string => typeof part === "string" && part !== "")
+          .join(" · ")}
+        onClose={() => {
+          update({ sel: undefined });
+        }}
       />
     </section>
   );

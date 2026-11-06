@@ -4,10 +4,10 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import type { components } from "@/lib/api/schema";
+import type { FiltersetSource } from "@/lib/filterset-entries";
 import { api } from "@/lib/api/client";
 import { toPage } from "@/lib/api/page";
 import { problemText } from "@/lib/api/problem";
-import { useFiltersets } from "@/lib/api/filtersets";
 import { CollectorList, type ListColumn } from "@/components/opensvc/CollectorList";
 import { CrossLink } from "@/components/opensvc/CrossLink";
 import { TeamLink } from "@/features/groups/TeamLink";
@@ -17,7 +17,9 @@ import { frozenFilterOptions } from "@/components/opensvc/filter-options";
 import { ObjectIcon } from "@/components/opensvc/ObjectIcon";
 import { OsLogo } from "@/components/opensvc/OsLogo";
 import type { ColumnFamily } from "@/components/opensvc/ColumnFamily";
-import { RelativeTime } from "@/components/ui/RelativeTime";
+import { LastReport } from "@/components/opensvc/LastReport";
+import { isOutdated, REPORTING_TICK_MS } from "@/components/opensvc/reporting";
+import { useNow } from "@/lib/use-now";
 import { formatSizeMiB } from "@/lib/format";
 import {
   resolveListSearch,
@@ -39,8 +41,25 @@ type NodeRow = components["schemas"]["NodeRow"];
 
 const DEFAULT_SORT = ["nodename"];
 
-/** Columns shown by default: enough to identify a node, not to audit it. */
-const DEFAULT_COLS: string[] = ["nodename", "app", "node_env", "os_concat", "last_comm"];
+/**
+ * Columns shown by default, those of the historical collector's nodes table
+ * (`default_columns` of `table_nodes`), in the order of NODE_PROPS, but
+ * `node_frozen`: the row marks a frozen node already.
+ */
+const DEFAULT_COLS: string[] = [
+  "nodename",
+  "serial",
+  "status",
+  "loc_building",
+  "loc_floor",
+  "loc_rack",
+  "cpu_dies",
+  "cpu_cores",
+  "cpu_model",
+  "mem_bytes",
+  "node_env",
+  "team_responsible",
+];
 
 /** Integer props of the oc3 `node` mapping (the `colInt` helper), aligned right. */
 const NUMERIC_PROPS = new Set<string>([
@@ -155,17 +174,17 @@ const FAMILY: Record<string, ColumnFamily> = {
 };
 
 /**
- * Columns holding one value per node, the id by constraint, the name in practice:
- * their distribution would only list each node once.
+ * Columns holding one value per node, the id by constraint, the name and the
+ * serial number in practice: the comparison of a selection leaves them out, as
+ * they would only tell the nodes apart.
  */
-const UNIQUE_PROPS = new Set<string>(["node_id", "nodename"]);
+const UNIQUE_PROPS = new Set<string>(["node_id", "nodename", "serial"]);
 
 const COLUMNS: ListColumn<NodeRow>[] = NODE_PROPS.map((prop) => ({
   prop,
   labelKey: `nodes.fields.${prop}`,
   numeric: NUMERIC_PROPS.has(prop),
   family: FAMILY[prop] ?? "node",
-  distribution: UNIQUE_PROPS.has(prop) ? false : undefined,
   filter:
     prop === "node_frozen"
       ? { kind: "enum" as const, options: frozenFilterOptions("T", "F") }
@@ -174,6 +193,8 @@ const COLUMNS: ListColumn<NodeRow>[] = NODE_PROPS.map((prop) => ({
     const value = row[prop];
     // The memory column is in mebibytes despite its name, see lib/format.
     if (prop === "mem_bytes") return formatSizeMiB(row.mem_bytes, locale);
+    // `status` is the asset status the inventory records ("Prod"…): free text, shown
+    // as is, never coloured as a state.
     // As in the historical collector, the system logo precedes the name.
     if (prop === "team_responsible" || prop === "team_integ" || prop === "team_support")
       return <TeamLink name={value} />;
@@ -193,10 +214,17 @@ const COLUMNS: ListColumn<NodeRow>[] = NODE_PROPS.map((prop) => ({
         </span>
       );
     // What one reads from the last contact is its age: a full date would have to be
-    // subtracted mentally to spot a node that has stopped speaking.
-    if (prop === "last_comm") return <RelativeTime value={row.last_comm} locale={locale} />;
-    if (DATE_PROPS.has(prop) && typeof value === "string")
-      return <DateTime value={value} locale={locale} />;
+    // subtracted mentally to spot a node that has stopped speaking, tinted past 15
+    // minutes like the last report of a service.
+    if (prop === "last_comm")
+      return (
+        <LastReport
+          value={row.last_comm}
+          locale={locale}
+          outdated={isOutdated(row.last_comm, Date.now())}
+        />
+      );
+    if (DATE_PROPS.has(prop) && typeof value === "string") return <DateTime value={value} />;
     return value;
   },
 }));
@@ -227,33 +255,19 @@ async function fetchNodes(search: ResolvedListSearch) {
     limit: search.limit + 1,
     filter: filterQuery(search.filters),
   };
-  const response =
-    search.fset === ""
-      ? await api.GET("/nodes", { params: { query } })
-      : await api.GET("/filtersets/{filterset_id}/nodes", {
-          params: { path: { filterset_id: search.fset }, query },
-        });
+  const response = await api.GET("/nodes", { params: { query } });
   if (response.error !== undefined) throw new Error(problemText(response.error));
   const all: NodeRow[] = Array.isArray(response.data.data) ? response.data.data : [];
   return toPage(all, response.data.meta, search.limit);
 }
 
 /**
- * The distribution of a column's values over the selection: the filterset of
- * `search` and the filters given apply, not the pagination.
+ * The distribution of a column's values over the selection: the filters given
+ * apply, not the pagination.
  */
-async function nodeStats(
-  search: ResolvedListSearch,
-  prop: string,
-  filters: ColumnFilters,
-): Promise<ValueStats> {
+async function nodeStats(prop: string, filters: ColumnFilters): Promise<ValueStats> {
   const query = { props: prop, stats: "1", limit: STATS_LIMIT, filter: filterQuery(filters) };
-  const response =
-    search.fset === ""
-      ? await api.GET("/nodes", { params: { query } })
-      : await api.GET("/filtersets/{filterset_id}/nodes", {
-          params: { path: { filterset_id: search.fset }, query },
-        });
+  const response = await api.GET("/nodes", { params: { query } });
   if (response.error !== undefined) throw new Error(problemText(response.error));
   return toValueStats(response.data.data, response.data.meta, prop);
 }
@@ -285,7 +299,6 @@ function useNodes(search: ResolvedListSearch) {
       search.sort,
       search.offset,
       search.limit,
-      search.fset,
       search.cols,
       filtersKey(search.filters),
     ],
@@ -296,6 +309,12 @@ function useNodes(search: ResolvedListSearch) {
   });
 }
 
+/**
+ * Filters saved as a filterset (SaveAsFilterset). Nodes filter on their own columns:
+ * the filterset selects them.
+ */
+const FILTERSET_SOURCE: FiltersetSource = { table: "nodes", selects: "nodes" };
+
 export function NodesPage() {
   const { t } = useTranslation();
   const prefs = useViewPrefs("nodes");
@@ -305,7 +324,8 @@ export function NodesPage() {
   );
   const navigate = useNavigate({ from: "/nodes" });
   const { data, isPending, isError, error, isFetching } = useNodes(search);
-  const filtersets = useFiltersets();
+  // Nodes age without the data changing: the outdated contacts are worked out again.
+  useNow(REPORTING_TICK_MS);
   const [creating, setCreating] = useState(false);
   // Selection held by the list; the page keeps only its ids, for the actions menu.
   // The names come from the page on display, hence the fallback to the id.
@@ -316,15 +336,10 @@ export function NodesPage() {
   // The nodes the last deletion removed, unticked from the list.
   const [deleted, setDeleted] = useState<string[]>([]);
 
-  /** Ids of the whole selection, filterset and filters included, without pagination. */
+  /** Ids of the whole selection, filters included, without pagination. */
   async function allIds(): Promise<string[]> {
     const query = { props: "node_id", limit: 0, filter: filterQuery(search.filters) };
-    const response =
-      search.fset === ""
-        ? await api.GET("/nodes", { params: { query } })
-        : await api.GET("/filtersets/{filterset_id}/nodes", {
-            params: { path: { filterset_id: search.fset }, query },
-          });
+    const response = await api.GET("/nodes", { params: { query } });
     if (response.error !== undefined) throw new Error(problemText(response.error));
     const rows: NodeRow[] = Array.isArray(response.data.data) ? response.data.data : [];
     return rows.map((row) => row.node_id).filter((id): id is string => id !== undefined);
@@ -389,13 +404,13 @@ export function NodesPage() {
       </div>
 
       <CollectorList
+        viewPrefs={prefs}
         columns={COLUMNS}
         defaultCols={DEFAULT_COLS}
         rows={data?.rows ?? []}
         rowId={(row) => row.node_id}
         search={search}
         onChange={update}
-        filtersets={filtersets.data ?? []}
         isPending={isPending}
         isFetching={isFetching}
         errorMessage={isError ? error.message : null}
@@ -407,8 +422,9 @@ export function NodesPage() {
         selectAllMatching={allIds}
         unselect={deleted}
         reselect={reselect}
-        valueStats={(prop, filters) => nodeStats(search, prop, filters)}
+        valueStats={nodeStats}
         filterable
+        filtersetSource={FILTERSET_SOURCE}
       />
 
       <CommonalityPanel

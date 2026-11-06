@@ -20,7 +20,8 @@ import {
   visibleProps,
   type ResolvedListSearch,
 } from "@/lib/list-search";
-import { filterQuery, filtersKey } from "@/lib/column-filters";
+import { filterQuery, filtersKey, type ColumnFilters } from "@/lib/column-filters";
+import { STATS_LIMIT, toValueStats, type ValueStats } from "@/lib/api/value-stats";
 import { useViewPrefs, withSavedSearch } from "@/lib/user-prefs";
 import { ModulesetDetailPanel } from "./ModulesetDetailPanel";
 
@@ -72,11 +73,11 @@ const FAMILY: Partial<Record<ModulesetProp, ColumnFamily>> = {
 /** The id props, keys of the rows. */
 const KEY_PROPS = ["id", "modset_id"];
 
-function renderCell(prop: ModulesetProp, row: ModulesetRow, locale: string) {
+function renderCell(prop: ModulesetProp, row: ModulesetRow) {
   switch (prop) {
     case "modset_updated":
     case "modset_mod_updated":
-      return <DateTime value={row[prop]} locale={locale} />;
+      return <DateTime value={row[prop]} />;
     case "teams_responsible":
     case "teams_publication":
       return <TeamLinks value={row[prop]} />;
@@ -99,7 +100,7 @@ const COLUMNS: ListColumn<ModulesetRow>[] = MODULESET_PROPS.map((prop) => ({
   numeric: KEY_PROPS.includes(prop),
   family: FAMILY[prop] ?? "moduleset",
   filter: prop === "autofix" ? { kind: "enum" as const, options: FLAG_FILTER_OPTIONS } : undefined,
-  render: (row, locale) => renderCell(prop, row, locale),
+  render: (row) => renderCell(prop, row),
 }));
 
 const ALL_PROPS: string[] = [...MODULESET_PROPS];
@@ -140,6 +141,17 @@ async function fetchModulesets(search: ResolvedListSearch) {
   // `data` holds the rows, or the counts when `stats` is asked for.
   const all: ModulesetRow[] = Array.isArray(data.data) ? data.data : [];
   return toPage(all, data.meta, search.limit);
+}
+
+/**
+ * The distribution of a column's values over the modulesets the filters given keep,
+ * for its filter: the pagination does not apply.
+ */
+async function modulesetStats(prop: string, filters: ColumnFilters): Promise<ValueStats> {
+  const query = { props: prop, stats: "1", limit: STATS_LIMIT, filter: filterQuery(filters) };
+  const response = await api.GET("/compliance/modulesets_modules", { params: { query } });
+  if (response.error !== undefined) throw new Error(problemText(response.error));
+  return toValueStats(response.data.data, response.data.meta, prop);
 }
 
 function useModulesets(search: ResolvedListSearch) {
@@ -215,14 +227,14 @@ export function ModulesetsPage() {
       </h1>
 
       <CollectorList
+        viewPrefs={prefs}
+        valueStats={modulesetStats}
         columns={COLUMNS}
         defaultCols={DEFAULT_COLS}
         rows={data?.rows ?? []}
         rowId={rowKey}
         search={search}
         onChange={update}
-        // The collector's filtersets select nodes and services, not modulesets.
-        filtersets={[]}
         isPending={isPending}
         isFetching={isFetching}
         errorMessage={isError ? error.message : null}

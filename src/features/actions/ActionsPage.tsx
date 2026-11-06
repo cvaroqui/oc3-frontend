@@ -23,7 +23,8 @@ import {
   visibleProps,
   type ResolvedListSearch,
 } from "@/lib/list-search";
-import { filterQuery, filtersKey } from "@/lib/column-filters";
+import { filterQuery, filtersKey, type ColumnFilters } from "@/lib/column-filters";
+import { STATS_LIMIT, toValueStats, type ValueStats } from "@/lib/api/value-stats";
 import { useViewPrefs, withSavedSearch } from "@/lib/user-prefs";
 import { ActionDetailPanel } from "./ActionDetailPanel";
 import { ActionQueueMenu } from "./ActionQueueMenu";
@@ -107,7 +108,7 @@ const COLUMNS: ListColumn<ActionRow>[] = ACTION_PROPS.map((prop) => ({
     if (prop === "date_queued") return <RelativeTime value={realDate(value)} locale={locale} />;
     if (prop === "date_dequeued") {
       const date = realDate(value);
-      return date === undefined ? undefined : <DateTime value={date} locale={locale} />;
+      return date === undefined ? undefined : <DateTime value={date} />;
     }
     if (LONG_PROPS.has(prop))
       return (
@@ -145,6 +146,17 @@ async function fetchActions(search: ResolvedListSearch) {
   if (error !== undefined) throw new Error(problemText(error));
   const all = toActionRows(data.data);
   return toPage(all, data.meta, search.limit);
+}
+
+/**
+ * The distribution of a column's values over the queued actions the filters given keep,
+ * for its filter: the pagination does not apply.
+ */
+async function queuedActionStats(prop: string, filters: ColumnFilters): Promise<ValueStats> {
+  const query = { props: prop, stats: "1", limit: STATS_LIMIT, filter: filterQuery(filters) };
+  const response = await api.GET("/actions", { params: { query } });
+  if (response.error !== undefined) throw new Error(problemText(response.error));
+  return toValueStats(response.data.data, response.data.meta, prop);
 }
 
 function useActions(search: ResolvedListSearch) {
@@ -206,14 +218,14 @@ export function ActionsPage() {
       </div>
 
       <CollectorList
+        viewPrefs={prefs}
+        valueStats={queuedActionStats}
         columns={COLUMNS}
         defaultCols={DEFAULT_COLS}
         rows={data?.rows ?? []}
         rowId={(row) => row.id}
         search={search}
         onChange={update}
-        // apicollector has no actions endpoint filtered by filterset.
-        filtersets={[]}
         isPending={loading}
         isFetching={isFetching}
         errorMessage={isError ? error.message : null}

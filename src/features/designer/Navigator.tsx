@@ -1,5 +1,6 @@
 import { useContext, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
+import { personalGroupUser, useTeamLabel } from "@/components/opensvc/use-team-label";
 import { ObjectIcon } from "@/components/opensvc/ObjectIcon";
 import {
   CaretRightIcon,
@@ -14,6 +15,7 @@ import { useDesigner } from "./designer-context";
 import { useDraggable, useDropTarget, type DragItem } from "./drag";
 import {
   isModified,
+  modifiedCount,
   parentsOf,
   type Moduleset,
   type ObjectKind,
@@ -28,17 +30,18 @@ import {
   type DesignerFilterset,
   type DesignerGroup,
 } from "./use-designer-data";
+import { useCompModules, type CompModule } from "@/features/comp-modules/comp-modules-api";
 
 type QuickFilter = "modified" | "contextual" | "private" | "unused";
 
 const QUICK_FILTERS: QuickFilter[] = ["modified", "contextual", "private", "unused"];
 
 /**
- * The list of the modulesets, rulesets, filtersets and groups, in sections stacked
- * in one column, so that anything can be dragged onto anything: a ruleset onto a
- * moduleset or a ruleset, a moduleset onto a moduleset, a filterset or a variable
- * onto a ruleset, a group onto a ruleset or a moduleset. Filtered as one types,
- * and by quick filters.
+ * The list of the modulesets, compliance modules, rulesets, filtersets and groups,
+ * in sections stacked in one column, so that anything can be dragged onto
+ * anything: a module onto a moduleset, a ruleset onto a moduleset or a ruleset,
+ * a moduleset onto a moduleset, a filterset or a variable onto a ruleset, a group
+ * onto a ruleset or a moduleset. Filtered as one types, and by quick filters.
  */
 export function Navigator({
   selected,
@@ -78,6 +81,7 @@ export function Navigator({
   const modulesets = Object.values(designer.draft.modulesets).filter(keep).sort(byName);
   const rulesets = Object.values(designer.draft.rulesets).filter(keep).sort(byName);
   const allGroups = useComplianceGroups();
+  const teamLabel = useTeamLabel();
   const teamed = new Set(
     [
       ...Object.values(designer.draft.rulesets),
@@ -88,10 +92,29 @@ export function Navigator({
   const groups =
     filters.has("modified") || filters.has("contextual") || filters.has("private")
       ? []
-      : (allGroups.data ?? []).filter(
-          (g) =>
-            (needle === "" || g.role.toLowerCase().includes(needle)) &&
-            !(filters.has("unused") && teamed.has(g.role)),
+      : (allGroups.data ?? [])
+          .filter(
+            (g) =>
+              // A private group is found by its user's name, or by its role.
+              (needle === "" ||
+                g.role.toLowerCase().includes(needle) ||
+                teamLabel(g.role).toLowerCase().includes(needle)) &&
+              !(filters.has("unused") && teamed.has(g.role)),
+          )
+          .sort((a, b) => teamLabel(a.role).localeCompare(teamLabel(b.role)));
+  // The modules of the repository, not changed by the draft: the quick filters
+  // but "unused" leave none of them; unused, no moduleset of the draft names it.
+  const allModules = useCompModules();
+  const named = new Set(
+    Object.values(designer.draft.modulesets).flatMap((m) => m.modules.map((mod) => mod.name)),
+  );
+  const modules =
+    filters.has("modified") || filters.has("contextual") || filters.has("private")
+      ? []
+      : (allModules.data ?? []).filter(
+          (m) =>
+            (needle === "" || m.name.toLowerCase().includes(needle)) &&
+            !(filters.has("unused") && named.has(m.name)),
         );
   const allFiltersets = useDesignerFiltersets();
   const usedFiltersets = new Set(Object.values(designer.draft.rulesets).map((r) => r.filterset));
@@ -121,11 +144,7 @@ export function Navigator({
           className="h-8 w-full rounded-(--radius-control) border border-line bg-surface pr-2 pl-7"
         />
       </div>
-      <div
-        className="flex flex-wrap items-center gap-1"
-        role="group"
-        aria-label={t("designer.quickFilters")}
-      >
+      <div className="flex items-center gap-1" role="group" aria-label={t("designer.quickFilters")}>
         <FilterIcon className="h-3.5 w-3.5 text-ink-muted" />
         {QUICK_FILTERS.map((f) => (
           <button
@@ -138,13 +157,17 @@ export function Navigator({
               else next.add(f);
               setFilters(next);
             }}
-            className="h-6 rounded-full border border-line px-2 text-ink-muted hover:text-ink aria-pressed:border-accent aria-pressed:bg-accent-soft aria-pressed:text-ink"
+            // Data size and tight padding: the four fit on one row beside the icon,
+            // in the width of the list (19rem, `DesignerPage`), French labels included.
+            className="h-6 rounded-full border border-line px-1.5 text-data whitespace-nowrap text-ink-muted hover:text-ink aria-pressed:border-accent aria-pressed:bg-accent-soft aria-pressed:text-ink"
           >
             {t(`designer.quick.${f}`)}
           </button>
         ))}
       </div>
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+        <GroupSection items={groups} filtering={filtering} selected={selected} />
+        <ModuleSection items={modules} filtering={filtering} selected={selected} />
         <NavSection
           kind="moduleset"
           items={modulesets}
@@ -160,7 +183,6 @@ export function Navigator({
           onVariableDrop={onVariableDrop}
         />
         <FiltersetSection items={filtersets} filtering={filtering} selected={selected} />
-        <GroupSection items={groups} filtering={filtering} selected={selected} />
       </div>
     </nav>
   );
@@ -216,6 +238,8 @@ function NavSection({
   const [open, setOpen] = useSectionOpen(filtering);
   const [adding, setAdding] = useState(false);
   const title = t(kind === "ruleset" ? "designer.rulesets" : "designer.modulesets");
+  // The section holds pending changes, whatever the filter shows of it.
+  const modified = modifiedCount(designer.original, designer.draft, kind);
   return (
     <section>
       <div className="sticky top-0 z-10 flex items-center gap-1 bg-surface py-1">
@@ -231,6 +255,15 @@ function NavSection({
           <ObjectIcon kind={kind} className="h-4 w-4" />
           {title}
           <span className="font-normal text-ink-muted">({items.length})</span>
+          {modified > 0 && (
+            <span
+              className="font-normal text-state-warn"
+              title={t("designer.sectionModified", { count: modified })}
+            >
+              <span aria-hidden="true">●</span>
+              <span className="sr-only">{t("designer.sectionModified", { count: modified })}</span>
+            </span>
+          )}
         </button>
         <button
           type="button"
@@ -253,6 +286,7 @@ function NavSection({
             placeholder={t("designer.namePlaceholder")}
             fieldLabel={t(`designer.newName.${kind}`)}
             fill
+            focusOnOpen
             onAdd={(name) => {
               const { refused, created } = designer.run({ op: "create", kind, name });
               if (refused === null && created !== undefined) {
@@ -315,6 +349,9 @@ function NavItem({
         return { op: "addTeam", ref, role: "publications", team: dragged.role };
       if (dragged.type === "filterset" && item.kind === "ruleset")
         return { op: "setFilterset", id: item.id, filterset: dragged.name };
+      // A compliance module dropped on a moduleset joins its modules.
+      if (dragged.type === "module" && item.kind === "moduleset")
+        return { op: "addModule", modulesetId: item.id, name: dragged.name };
       if (dragged.type === "variable" && item.kind === "ruleset")
         return {
           op: "copyVariable",
@@ -378,16 +415,15 @@ function NavItem({
             </span>
           ))}
         {item.kind === "ruleset" &&
+          // The visibility, and what it means, on hover.
           (item.isPublic ? (
-            <GlobeIcon
-              className="h-3 w-3 shrink-0 text-ink-muted"
-              aria-label={t("designer.public")}
-            />
+            <span className="shrink-0" title={t("designer.publicTitle")}>
+              <GlobeIcon className="h-3 w-3 text-ink-muted" aria-label={t("designer.public")} />
+            </span>
           ) : (
-            <LockIcon
-              className="h-3 w-3 shrink-0 text-ink-muted"
-              aria-label={t("designer.private")}
-            />
+            <span className="shrink-0" title={t("designer.privateTitle")}>
+              <LockIcon className="h-3 w-3 text-ink-muted" aria-label={t("designer.private")} />
+            </span>
           ))}
         <span className="ml-auto shrink-0 text-ink-muted">{count}</span>
         {modified && (
@@ -538,7 +574,8 @@ function GroupItem({ item, selected }: { item: DesignerGroup; selected: boolean 
   const { t } = useTranslation();
   const designer = useDesigner();
   const select = useContext(SelectContext);
-  const drag = useDraggable({ type: "group", id: item.id, role: item.role }, item.role);
+  const name = useTeamLabel()(item.role);
+  const drag = useDraggable({ type: "group", id: item.id, role: item.role }, name);
   const uses = [
     ...Object.values(designer.draft.rulesets),
     ...Object.values(designer.draft.modulesets),
@@ -558,10 +595,104 @@ function GroupItem({ item, selected }: { item: DesignerGroup; selected: boolean 
           selected ? "bg-accent-soft text-ink" : "hover:bg-surface-sunken"
         }`}
       >
-        <ObjectIcon kind="group" className="h-3.5 w-3.5 shrink-0" />
-        <span className="truncate">{item.role}</span>
+        <ObjectIcon
+          kind={personalGroupUser(item.role) === undefined ? "group" : "user"}
+          className="h-3.5 w-3.5 shrink-0"
+        />
+        <span className="truncate">{name}</span>
         <span className="ml-auto shrink-0 text-ink-muted">
           {uses === 0 ? t("designer.unusedShort") : t("designer.count.objects", { count: uses })}
+        </span>
+      </button>
+    </li>
+  );
+}
+
+/**
+ * The compliance modules of the repository, read only: dragged onto a moduleset,
+ * one joins its modules. Each tells how many modulesets of the draft name it,
+ * and whether an agent can run it.
+ */
+function ModuleSection({
+  items,
+  filtering,
+  selected,
+}: {
+  items: CompModule[];
+  filtering: boolean;
+  selected: Selection | null;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useSectionOpen(filtering);
+  return (
+    <section>
+      <div className="sticky top-0 z-10 flex items-center gap-1 bg-surface py-1">
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => {
+            setOpen(!open);
+          }}
+          className="flex items-center gap-1 font-semibold"
+        >
+          <CaretRightIcon className={`h-3 w-3 transition-transform ${open ? "rotate-90" : ""}`} />
+          <ObjectIcon kind="compModule" className="h-4 w-4" />
+          {t("designer.modulesRepo")}
+          <span className="font-normal text-ink-muted">({items.length})</span>
+        </button>
+      </div>
+      {open && (
+        <ul className="space-y-0.5" onKeyDown={moveFocus}>
+          {items.length === 0 && <li className="px-2 text-ink-muted">{t("designer.noMatch")}</li>}
+          {items.map((item) => (
+            <ModuleItem
+              key={item.path}
+              item={item}
+              selected={selected?.kind === "module" && selected.name === item.name}
+            />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function ModuleItem({ item, selected }: { item: CompModule; selected: boolean }) {
+  const { t } = useTranslation();
+  const designer = useDesigner();
+  const select = useContext(SelectContext);
+  const drag = useDraggable({ type: "module", name: item.name }, item.name);
+  const uses = Object.values(designer.draft.modulesets).filter((m) =>
+    m.modules.some((mod) => mod.name === item.name),
+  ).length;
+  return (
+    <li>
+      <button
+        type="button"
+        data-nav-item
+        {...drag}
+        aria-current={selected ? "true" : undefined}
+        title={t("designer.moduleDragHint")}
+        onClick={() => {
+          select({ kind: "module", name: item.name });
+        }}
+        className={`flex w-full cursor-pointer items-center gap-1.5 rounded-(--radius-control) px-2 py-1 text-left ${
+          selected ? "bg-accent-soft text-ink" : "hover:bg-surface-sunken"
+        }`}
+      >
+        <ObjectIcon kind="compModule" className="h-3.5 w-3.5 shrink-0" />
+        <span className="truncate">{item.name}</span>
+        {!item.runnable && (
+          <span
+            className="shrink-0 text-state-warn"
+            title={t("designer.moduleNotRunnable")}
+            aria-label={t("designer.moduleNotRunnable")}
+          >
+            ▲
+          </span>
+        )}
+        <span className="ml-auto shrink-0 text-ink-muted">
+          {uses === 0 ? t("designer.unusedShort") : t("designer.count.modulesets", { count: uses })}
         </span>
       </button>
     </li>

@@ -1,4 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { ALERT_PROPS } from "@/components/opensvc/alerts";
 import type { components } from "@/lib/api/schema";
 import { api } from "@/lib/api/client";
 import { problemText } from "@/lib/api/problem";
@@ -12,6 +13,7 @@ type IpRow = components["schemas"]["IpRow"];
 type DiskRow = components["schemas"]["DiskRow"];
 type HbaRow = components["schemas"]["HbaRow"];
 type CheckRow = components["schemas"]["CheckRow"];
+export type NodeServiceRow = components["schemas"]["InstanceRow"];
 
 /**
  * Hardware inventory of the node, as pushed by the agent. Loaded whole: a node counts
@@ -21,8 +23,9 @@ export function useNodeHardware(nodeId: string | undefined) {
   return useQuery({
     queryKey: ["node", nodeId, "hardware"],
     enabled: nodeId !== undefined,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await api.GET("/nodes/{node_id}/hardware", {
+        signal,
         params: {
           path: { node_id: nodeId ?? "" },
           query: {
@@ -50,8 +53,9 @@ export function useNodeLogs(nodeId: string | undefined) {
   return useQuery({
     queryKey: ["node", nodeId, "logs"],
     enabled: nodeId !== undefined,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await api.GET("/logs", {
+        signal,
         params: {
           query: {
             props:
@@ -75,12 +79,13 @@ export function useNodeAlerts(nodeId: string | undefined) {
   return useQuery({
     queryKey: ["node", nodeId, "alerts"],
     enabled: nodeId !== undefined,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await api.GET("/nodes/{node_id}/alerts", {
+        signal,
         params: {
           path: { node_id: nodeId ?? "" },
           query: {
-            props: "id,dash_severity,dash_type,alert,dash_env,dash_created,dash_updated",
+            props: ALERT_PROPS,
             orderby: "-dash_severity,-dash_updated",
             limit: 0,
           },
@@ -102,8 +107,9 @@ export function useNodeChecks(nodeId: string | undefined) {
   return useQuery({
     queryKey: ["node", nodeId, "checks"],
     enabled: nodeId !== undefined,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await api.GET("/nodes/{node_id}/checks", {
+        signal,
         params: {
           path: { node_id: nodeId ?? "" },
           query: {
@@ -122,6 +128,36 @@ export function useNodeChecks(nodeId: string | undefined) {
 }
 
 /**
+ * The service instances of the node, one row per container for an encapsulated
+ * service, with the columns of the historical collector's node tab
+ * (`table_service_instances_node`). Loaded whole: a node hosts a few hundred
+ * instances at most.
+ */
+export function useNodeServices(nodeId: string | undefined) {
+  return useQuery({
+    queryKey: ["node", nodeId, "services"],
+    enabled: nodeId !== undefined,
+    queryFn: async ({ signal }) => {
+      const { data, error } = await api.GET("/nodes/{node_id}/services", {
+        signal,
+        params: {
+          path: { node_id: nodeId ?? "" },
+          query: {
+            props:
+              "svc_id,node_id,services.svcname,services.svc_ha,services.svc_topology,mon_vmtype,mon_vmname,mon_availstatus,mon_overallstatus,mon_frozen,mon_updated",
+            orderby: "services.svcname,mon_vmname",
+            limit: 0,
+          },
+        },
+      });
+      if (error !== undefined) throw new Error(problemText(error));
+      const rows: NodeServiceRow[] = Array.isArray(data.data) ? data.data : [];
+      return rows;
+    },
+  });
+}
+
+/**
  * IP addresses of the node, with the declared network that contains them. The
  * endpoint refuses `orderby` (same mapping as `/ips`): a node counts a few hundred at
  * most, so sorting is done on display.
@@ -130,8 +166,9 @@ export function useNodeIps(nodeId: string | undefined) {
   return useQuery({
     queryKey: ["node", nodeId, "ips"],
     enabled: nodeId !== undefined,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await api.GET("/nodes/{node_id}/ips", {
+        signal,
         params: {
           path: { node_id: nodeId ?? "" },
           query: {
@@ -153,8 +190,9 @@ export function useNodeDisks(nodeId: string | undefined) {
   return useQuery({
     queryKey: ["node", nodeId, "disks"],
     enabled: nodeId !== undefined,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await api.GET("/nodes/{node_id}/disks", {
+        signal,
         params: {
           path: { node_id: nodeId ?? "" },
           query: {
@@ -177,8 +215,9 @@ export function useNodeHbas(nodeId: string | undefined) {
   return useQuery({
     queryKey: ["node", nodeId, "hbas"],
     enabled: nodeId !== undefined,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await api.GET("/nodes/{node_id}/hbas", {
+        signal,
         params: {
           path: { node_id: nodeId ?? "" },
           query: { props: "id,hba_id,hba_type,updated", orderby: "hba_type,hba_id", limit: 0 },
@@ -196,8 +235,9 @@ export function useNodeSan(nodeId: string | undefined) {
   return useQuery({
     queryKey: ["node", nodeId, "san"],
     enabled: nodeId !== undefined,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await api.GET("/nodes/{node_id}/san", {
+        signal,
         params: { path: { node_id: nodeId ?? "" } },
       });
       if (error !== undefined) throw new Error(problemText(error));
@@ -211,8 +251,9 @@ export function useNodeTags(nodeId: string | undefined) {
   return useQuery({
     queryKey: ["node", nodeId, "tags"],
     enabled: nodeId !== undefined,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await api.GET("/nodes/{node_id}/tags", {
+        signal,
         params: { path: { node_id: nodeId ?? "" }, query: { orderby: "tag_name", limit: 0 } },
       });
       if (error !== undefined) throw new Error(problemText(error));
@@ -237,8 +278,9 @@ export function useNodePackageCount(nodeId: string | undefined) {
   return useQuery({
     queryKey: ["node", nodeId, "packages", "count"],
     enabled: nodeId !== undefined,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await api.GET("/packages", {
+        signal,
         params: { query: { props: "id", limit: 1, filter: [nodePackagesFilter(nodeId)] } },
       });
       if (error !== undefined) throw new Error(problemText(error));
@@ -252,8 +294,9 @@ export function useNodePackages(nodeId: string | undefined) {
   return useQuery({
     queryKey: ["node", nodeId, "packages"],
     enabled: nodeId !== undefined,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await api.GET("/packages", {
+        signal,
         params: {
           query: {
             props:
@@ -288,8 +331,9 @@ export function useNodeSysreport(
     queryKey: ["node", nodeId, "sysreport", filter.path, filter.begin, filter.limit],
     enabled: nodeId !== undefined,
     placeholderData: keepPreviousData,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await api.GET("/nodes/{node_id}/sysreport", {
+        signal,
         params: {
           path: { node_id: nodeId ?? "" },
           query: {
@@ -312,8 +356,9 @@ export function useNodeSysreportChange(nodeId: string, cid: string, enabled: boo
     enabled,
     // A report does not change once made.
     staleTime: Infinity,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await api.GET("/nodes/{node_id}/sysreport/{cid}", {
+        signal,
         params: { path: { node_id: nodeId, cid } },
       });
       if (error !== undefined) throw new Error(problemText(error));
@@ -327,8 +372,9 @@ export function useNodeSysreportTree(nodeId: string | undefined, cid: string, en
   return useQuery({
     queryKey: ["node", nodeId, "sysreport", "tree", cid],
     enabled: enabled && nodeId !== undefined,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error, response } = await api.GET("/nodes/{node_id}/sysreport/{cid}/tree", {
+        signal,
         params: { path: { node_id: nodeId ?? "", cid } },
       });
       // A node that never reported has no tree: nothing to list, not an error.
@@ -346,8 +392,9 @@ export function useNodeSysreportFile(nodeId: string, cid: string, oid: string, e
     enabled,
     // An object id names one content for ever.
     staleTime: Infinity,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await api.GET("/nodes/{node_id}/sysreport/{cid}/tree/{oid}", {
+        signal,
         params: { path: { node_id: nodeId, cid, oid } },
       });
       if (error !== undefined) throw new Error(problemText(error));
@@ -363,8 +410,9 @@ export function useNodeSysreportFile(nodeId: string, cid: string, oid: string, e
 export function useNodeSysreportTimediff(nodeId: string, begin: string, end: string | undefined) {
   return useQuery({
     queryKey: ["node", nodeId, "sysreport", "timediff", begin, end ?? "latest"],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await api.GET("/nodes/{node_id}/sysreport/timediff", {
+        signal,
         params: { path: { node_id: nodeId }, query: { begin, end } },
       });
       if (error !== undefined) throw new Error(problemText(error));

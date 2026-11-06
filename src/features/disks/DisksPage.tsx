@@ -4,6 +4,7 @@ import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import type { components } from "@/lib/api/schema";
 import { api } from "@/lib/api/client";
+import { problemText } from "@/lib/api/problem";
 import { toPage } from "@/lib/api/page";
 import { CollectorList, type ListColumn } from "@/components/opensvc/CollectorList";
 import { CrossLink } from "@/components/opensvc/CrossLink";
@@ -17,7 +18,8 @@ import {
   visibleProps,
   type ResolvedListSearch,
 } from "@/lib/list-search";
-import { filterQuery, filtersKey } from "@/lib/column-filters";
+import { filterQuery, filtersKey, type ColumnFilters } from "@/lib/column-filters";
+import { STATS_LIMIT, toValueStats, type ValueStats } from "@/lib/api/value-stats";
 import { useViewPrefs, withSavedSearch } from "@/lib/user-prefs";
 import { DiskDetailPanel } from "./DiskDetailPanel";
 
@@ -100,6 +102,13 @@ const COLUMNS: ListColumn<DiskRow>[] = DISK_PROPS.map((prop) => ({
   labelKey: `disks.fields.${prop}`,
   numeric: NUMERIC_PROPS.has(prop),
   family: FAMILY[prop] ?? "node",
+  // The sizes read in their distribution as in the cells.
+  formatValue: SIZE_PROPS.has(prop)
+    ? (value: string, locale: string) =>
+        value === "" || Number.isNaN(Number(value))
+          ? value
+          : formatSizeMiB(Number(value), locale) || value
+    : undefined,
   render: (row: DiskRow, locale: string) => {
     const value = row[prop];
     if (prop === "app")
@@ -121,8 +130,7 @@ const COLUMNS: ListColumn<DiskRow>[] = DISK_PROPS.map((prop) => ({
         </CrossLink>
       );
     if (SIZE_PROPS.has(prop) && typeof value === "number") return formatSizeMiB(value, locale);
-    if (DATE_PROPS.has(prop) && typeof value === "string")
-      return <DateTime value={value} locale={locale} />;
+    if (DATE_PROPS.has(prop) && typeof value === "string") return <DateTime value={value} />;
     return value;
   },
 }));
@@ -140,6 +148,17 @@ function queryProps(cols: string[] | undefined): string {
     ...(shown.includes("svcname") ? ["svc_id"] : []),
   ];
   return [...new Set(["disk_id", ...shown, ...extra])].join(",");
+}
+
+/**
+ * The distribution of a column's values over the selection: the filters given
+ * apply, not the pagination.
+ */
+async function diskStats(prop: string, filters: ColumnFilters): Promise<ValueStats> {
+  const query = { props: prop, stats: "1", limit: STATS_LIMIT, filter: filterQuery(filters) };
+  const response = await api.GET("/disks", { params: { query } });
+  if (response.error !== undefined) throw new Error(problemText(response.error));
+  return toValueStats(response.data.data, response.data.meta, prop);
 }
 
 /**
@@ -221,14 +240,13 @@ export function DisksPage() {
       </h1>
 
       <CollectorList
+        viewPrefs={prefs}
         columns={COLUMNS}
         defaultCols={DEFAULT_COLS}
         rows={data?.rows ?? []}
         rowId={(row) => row.disk_id}
         search={search}
         onChange={update}
-        // The collector's filtersets do not apply to disks.
-        filtersets={[]}
         isPending={isPending}
         isFetching={isFetching}
         errorMessage={isError ? error.message : null}
@@ -236,6 +254,7 @@ export function DisksPage() {
         exportPage={(page) => fetchDisks({ ...search, ...page })}
         total={data?.total}
         selectAllMatching={allIds}
+        valueStats={diskStats}
         filterable
       />
 

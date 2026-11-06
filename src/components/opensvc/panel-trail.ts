@@ -7,6 +7,7 @@ const PEEK_KINDS: ReadonlySet<string> = new Set<ObjectKind>([
   "cluster",
   "service",
   "instance",
+  "resource",
   "app",
   "group",
   "user",
@@ -20,6 +21,7 @@ const PEEK_KINDS: ReadonlySet<string> = new Set<ObjectKind>([
   "report",
   "moduleset",
   "ruleset",
+  "safe",
 ]);
 
 export function isPeekStep(step: PeekStep): step is PeekStep & { kind: ObjectKind } {

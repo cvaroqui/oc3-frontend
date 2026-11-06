@@ -1,4 +1,6 @@
 import {
+  createContext,
+  useContext,
   useEffect,
   useId,
   useMemo,
@@ -9,11 +11,12 @@ import {
 } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { apiGetDynamic } from "@/lib/api/client";
+import { api, apiGetDynamic } from "@/lib/api/client";
 import { problemText } from "@/lib/api/problem";
 import { LegacyCssIcon } from "@/components/opensvc/LegacyCssIcon";
 import { parseLegacyCss } from "@/components/opensvc/legacy-css";
 import { Switch } from "@/components/ui/Switch";
+import { Combobox } from "@/components/ui/Combobox";
 import { CloseIcon, PlusIcon } from "@/components/ui/icons";
 import {
   candidatesPath,
@@ -36,6 +39,8 @@ import {
   type FormUser,
   type GroupState,
   type InputValue,
+  candidatesQuery,
+  CANDIDATES_LIMIT,
 } from "./form-engine";
 import { useFormDefinitionByName } from "./use-form";
 
@@ -43,10 +48,17 @@ const CONTROL =
   "h-8 w-full rounded-(--radius-control) border bg-surface px-2 text-ink disabled:bg-surface-sunken disabled:text-ink-muted";
 
 /** A new group of inputs, each with its initial value; dynamic defaults resolved. */
+/** Identities of the entries of repeated forms, for their React keys. */
+let lastGroupUid = 0;
+function nextGroupUid(): number {
+  lastGroupUid += 1;
+  return lastGroupUid;
+}
+
 function newGroup(def: FormDefinition, user: FormUser): GroupState {
   const values: Record<string, InputValue> = {};
   for (const input of def.inputs) values[input.id] = initialValue(input, user);
-  const group: GroupState = { values, optionData: {} };
+  const group: GroupState = { values, optionData: {}, uid: nextGroupUid() };
   // Simple inputs with a "#ref" default take it once the other values are set, as
   // the historical renderer does when it fires its initial change events.
   const data = groupData(def, group, visibleInputs(def, group));
@@ -162,6 +174,7 @@ export function FormRender({
   initialData,
   stickySubmit = false,
   secondaryAction,
+  formId,
 }: {
   def: FormDefinition;
   user: FormUser;
@@ -177,6 +190,11 @@ export function FormRender({
   stickySubmit?: boolean;
   /** Placed before the submit button, a cancel for instance. */
   secondaryAction?: ReactNode;
+  /**
+   * The id of the stored form: its inputs calling a connector get their
+   * candidates from oc3, which reads them in the stored definition.
+   */
+  formId?: number;
 }) {
   const { t } = useTranslation();
   const repeated = isRepeated(def);
@@ -213,6 +231,7 @@ export function FormRender({
       previous.map((group, i) => {
         if (i !== index) return group;
         const next: GroupState = {
+          ...group,
           values: { ...group.values, [id]: value },
           optionData: { ...group.optionData, [id]: optionData },
         };
@@ -231,103 +250,167 @@ export function FormRender({
     );
   }
 
+  const removable = repeated && groups.length > minEntries;
+  const remove = (index: number) => {
+    setGroups((previous) => previous.filter((_, i) => i !== index));
+  };
+  // A list whose entries hold a single input, a list of nodes say: one row per
+  // entry, the label written once, rather than a card per entry.
+  const single = repeated && def.inputs.length === 1 ? def.inputs[0] : undefined;
+
   return (
-    <div className="flex flex-col gap-4">
-      {groups.map((group, index) => (
-        <div
-          key={index}
-          className={repeated ? "rounded-(--radius-panel) border border-line p-3" : undefined}
-        >
-          {repeated && groups.length > minEntries && (
-            <div className="mb-2 flex justify-end">
-              <button
-                type="button"
-                onClick={() => {
-                  setGroups((previous) => previous.filter((_, i) => i !== index));
-                }}
-                className="flex h-7 items-center gap-1 rounded-(--radius-control) border border-line px-2 text-ink-muted hover:text-ink"
+    <FormIdContext.Provider value={formId}>
+      <div className="flex flex-col gap-4">
+        {single !== undefined ? (
+          <div className="flex flex-col gap-2">
+            <p className="font-medium text-ink">
+              <LegacyCssIcon css={single.labelCss} className="mr-1.5 inline h-4 w-4 align-[-2px]" />
+              {single.label}
+              {single.mandatory && (
+                <span className="text-state-down" title={t("forms.render.mandatory")}>
+                  {" "}
+                  *<span className="sr-only">{t("forms.render.mandatory")}</span>
+                </span>
+              )}
+            </p>
+            {single.help !== "" && <p className="text-ink-muted">{single.help}</p>}
+            <ol className="flex flex-col gap-2">
+              {groups.map((group, index) => (
+                <li key={group.uid ?? index}>
+                  {visible[index]?.has(single.id) === true && (
+                    <InputRow
+                      input={single}
+                      group={group}
+                      data={datas[index] ?? {}}
+                      user={user}
+                      vertical={def.vertical}
+                      style={controlStyle(def, single)}
+                      onChange={(value, optionData) => {
+                        change(index, single.id, value, optionData);
+                      }}
+                      entry={{
+                        index,
+                        onRemove: removable
+                          ? () => {
+                              remove(index);
+                            }
+                          : undefined,
+                      }}
+                    />
+                  )}
+                </li>
+              ))}
+            </ol>
+          </div>
+        ) : (
+          groups.map((group, index) => (
+            <div
+              key={group.uid ?? index}
+              className={
+                repeated
+                  ? `relative rounded-(--radius-panel) border border-line p-3 ${removable ? "pr-11" : ""}`
+                  : undefined
+              }
+            >
+              {/* In the corner of its entry, rather than on a line of its own. */}
+              {removable && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    remove(index);
+                  }}
+                  aria-label={t("forms.render.removeEntry", { index: index + 1 })}
+                  title={t("forms.render.removeEntry", { index: index + 1 })}
+                  className="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-(--radius-control) border border-line bg-surface text-ink-muted hover:bg-surface-sunken hover:text-ink"
+                >
+                  <CloseIcon className="h-3.5 w-3.5" />
+                </button>
+              )}
+              <div
+                className={
+                  def.vertical
+                    ? "flex flex-col gap-3"
+                    : "grid grid-cols-[minmax(8rem,max-content)_1fr] items-start gap-x-4 gap-y-3"
+                }
               >
-                <CloseIcon className="h-3.5 w-3.5" />
-                {t("forms.render.removeGroup")}
-              </button>
+                {def.inputs
+                  .filter((input) => visible[index]?.has(input.id))
+                  .map((input) => (
+                    <InputRow
+                      key={input.id}
+                      input={input}
+                      group={group}
+                      data={datas[index] ?? {}}
+                      user={user}
+                      vertical={def.vertical}
+                      style={controlStyle(def, input)}
+                      onChange={(value, optionData) => {
+                        change(index, input.id, value, optionData);
+                      }}
+                    />
+                  ))}
+              </div>
             </div>
-          )}
+          ))
+        )}
+
+        {repeated && (maxEntries === null || groups.length < maxEntries) && (
+          <div>
+            <button
+              type="button"
+              onClick={() => {
+                setGroups((previous) => [...previous, newGroup(def, user)]);
+              }}
+              className="flex h-8 items-center gap-1.5 rounded-(--radius-control) border border-line px-3 text-ink hover:bg-surface-sunken"
+            >
+              <PlusIcon />
+              {t("forms.render.addGroup")}
+            </button>
+          </div>
+        )}
+
+        {onSubmit !== undefined && (
           <div
             className={
-              def.vertical
-                ? "flex flex-col gap-3"
-                : "grid grid-cols-[minmax(8rem,max-content)_1fr] items-start gap-x-4 gap-y-3"
+              stickySubmit
+                ? "sticky bottom-0 z-10 -mx-4 -mb-4 flex flex-wrap items-center justify-end gap-2 rounded-b-(--radius-panel) border-t border-line bg-surface-raised px-4 py-3"
+                : // A cancel beside the submit button keeps its distance.
+                  "flex flex-wrap items-center gap-2"
             }
           >
-            {def.inputs
-              .filter((input) => visible[index]?.has(input.id))
-              .map((input) => (
-                <InputRow
-                  key={input.id}
-                  input={input}
-                  group={group}
-                  data={datas[index] ?? {}}
-                  user={user}
-                  vertical={def.vertical}
-                  style={controlStyle(def, input)}
-                  onChange={(value, optionData) => {
-                    change(index, input.id, value, optionData);
-                  }}
-                />
-              ))}
+            {violations.length > 0 && stickySubmit && (
+              <p role="status" className="mr-auto text-state-down">
+                ■ {t("forms.render.violations", { count: violations.length })}
+              </p>
+            )}
+            {secondaryAction}
+            <button
+              type="button"
+              disabled={violations.length > 0}
+              onClick={() => {
+                onSubmit(data);
+              }}
+              className="h-8 rounded-(--radius-control) bg-accent px-3 font-medium text-accent-ink disabled:opacity-60"
+            >
+              {submitLabel ?? t("forms.render.submit")}
+            </button>
+            {violations.length > 0 && !stickySubmit && (
+              <p role="status" className="basis-full text-state-down">
+                ■ {t("forms.render.violations", { count: violations.length })}
+              </p>
+            )}
           </div>
-        </div>
-      ))}
-
-      {repeated && (maxEntries === null || groups.length < maxEntries) && (
-        <div>
-          <button
-            type="button"
-            onClick={() => {
-              setGroups((previous) => [...previous, newGroup(def, user)]);
-            }}
-            className="flex h-8 items-center gap-1.5 rounded-(--radius-control) border border-line px-3 text-ink hover:bg-surface-sunken"
-          >
-            <PlusIcon />
-            {t("forms.render.addGroup")}
-          </button>
-        </div>
-      )}
-
-      {onSubmit !== undefined && (
-        <div
-          className={
-            stickySubmit
-              ? "sticky bottom-0 z-10 -mx-4 -mb-4 flex flex-wrap items-center justify-end gap-2 rounded-b-(--radius-panel) border-t border-line bg-surface-raised px-4 py-3"
-              : undefined
-          }
-        >
-          {violations.length > 0 && stickySubmit && (
-            <p role="status" className="mr-auto text-state-down">
-              ■ {t("forms.render.violations", { count: violations.length })}
-            </p>
-          )}
-          {secondaryAction}
-          <button
-            type="button"
-            disabled={violations.length > 0}
-            onClick={() => {
-              onSubmit(data);
-            }}
-            className="h-8 rounded-(--radius-control) bg-accent px-3 font-medium text-accent-ink disabled:opacity-60"
-          >
-            {submitLabel ?? t("forms.render.submit")}
-          </button>
-          {violations.length > 0 && !stickySubmit && (
-            <p role="status" className="mt-2 text-state-down">
-              ■ {t("forms.render.violations", { count: violations.length })}
-            </p>
-          )}
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </FormIdContext.Provider>
   );
 }
+
+/**
+ * The id of the stored form rendered, for the candidates of its inputs calling a
+ * connector. Each FormRender sets its own: a sub-form is another form.
+ */
+const FormIdContext = createContext<number | undefined>(undefined);
 
 /** One input: its label, its control, its help, and its problems. */
 function InputRow({
@@ -338,6 +421,7 @@ function InputRow({
   vertical,
   style,
   onChange,
+  entry,
 }: {
   input: FormInput;
   group: GroupState;
@@ -346,12 +430,65 @@ function InputRow({
   vertical: boolean;
   style: CSSProperties | undefined;
   onChange: (value: InputValue, optionData?: unknown) => void;
+  /**
+   * The entry of a list whose entries hold this one input: a row, the control
+   * and its remove button, the label written once above the list.
+   */
+  entry?: { index: number; onRemove?: () => void };
 }) {
   const { t } = useTranslation();
   const id = useId();
   const value = group.values[input.id];
   const problems = violationsOf(input, value, data);
   const describedBy = `${id}-help`;
+  if (entry !== undefined) {
+    const name = t("forms.render.entryName", { label: input.label, index: entry.index + 1 });
+    return (
+      <div className="min-w-0">
+        <div className="flex items-start gap-2">
+          <label htmlFor={id} className="sr-only">
+            {name}
+          </label>
+          {/* The width of the form when it sets one, else the room there is. */}
+          <div className={style === undefined ? "min-w-0 flex-1" : "min-w-0"} style={style}>
+            <InputControl
+              id={id}
+              input={input}
+              value={value}
+              data={data}
+              user={user}
+              invalid={problems.length > 0}
+              describedBy={describedBy}
+              style={undefined}
+              onChange={onChange}
+              name={name}
+            />
+          </div>
+          {entry.onRemove !== undefined && (
+            <button
+              type="button"
+              onClick={entry.onRemove}
+              aria-label={t("forms.render.removeEntry", { index: entry.index + 1 })}
+              title={t("forms.render.removeEntry", { index: entry.index + 1 })}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-(--radius-control) border border-line text-ink-muted hover:bg-surface-sunken hover:text-ink"
+            >
+              <CloseIcon className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+        <div id={describedBy}>
+          {problems.includes("mandatory") && (
+            <p className="mt-1 text-state-down">■ {t("forms.render.required")}</p>
+          )}
+          {problems.includes("constraint") && (
+            <p className="mt-1 text-state-down">
+              ■ {t("forms.render.constraint", { constraint: input.constraint })}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
   return (
     <>
       <label htmlFor={id} className={`font-medium text-ink ${vertical ? "" : "pt-1.5"}`}>
@@ -400,17 +537,33 @@ function useRestCandidates(
   user: FormUser,
   enabled: boolean,
 ) {
+  const formId = useContext(FormIdContext);
   const path = candidatesPath(input, data, user);
   const args = prepareArgs(input.args, data, user);
   const query = Object.fromEntries(
     Object.entries(args).filter(([, v]) => (Array.isArray(v) ? v.length > 0 : true)),
   );
+  // Through a connector, the Args are oc3's to read; otherwise they are those of
+  // the historical API, translated for the oc3 one.
+  const external = input.connector !== "";
   return useQuery({
-    queryKey: ["form-candidates", path, query],
-    enabled: enabled && path !== null,
+    queryKey: external
+      ? ["form-connector-candidates", formId, input.id, path, query]
+      : ["form-candidates", path, query],
+    // Through a connector, oc3 builds the call from the stored form: a form
+    // not stored yet has none.
+    enabled: enabled && path !== null && (!external || formId !== undefined),
     staleTime: 60 * 1000,
     queryFn: async (): Promise<Candidate[]> => {
-      const response = await apiGetDynamic(path ?? "", query);
+      if (external) {
+        const { data: answer, error } = await api.POST(
+          "/forms/{form_id}/inputs/{input_id}/candidates",
+          { params: { path: { form_id: formId ?? 0, input_id: input.id } }, body: { data } },
+        );
+        if (error !== undefined) throw new Error(problemText(error));
+        return restCandidates(input, answer.data, args);
+      }
+      const response = await apiGetDynamic(path ?? "", candidatesQuery(query));
       if (response.status >= 300) throw new Error(problemText(response.body));
       const body = response.body;
       const rows =
@@ -443,6 +596,7 @@ function InputControl({
   describedBy,
   style,
   onChange,
+  name,
 }: {
   id: string;
   input: FormInput;
@@ -453,9 +607,12 @@ function InputControl({
   describedBy: string;
   style: CSSProperties | undefined;
   onChange: (value: InputValue, optionData?: unknown) => void;
+  /** Accessible name of the control, the label of the input by default. */
+  name?: string;
 }) {
   const { t } = useTranslation();
   const border = invalid ? "border-state-down" : "border-line";
+  const accessibleName = name ?? input.label;
   // Css of an input: the historical renderer styles the value with it (an icon,
   // or `pre` for preformatted text); `pre` also sets the typing of a text field.
   const mono = parseLegacyCss(input.css).pre ? "font-mono text-data" : "";
@@ -467,6 +624,7 @@ function InputControl({
     "aria-describedby": describedBy,
   };
   const rest = useRestCandidates(input, data, user, input.fn !== "");
+  const formId = useContext(FormIdContext);
 
   // Candidates fetched: the first one is chosen when nothing is, unless disabled.
   const candidates = rest.data;
@@ -505,8 +663,17 @@ function InputControl({
       </p>
     ) : rest.isFetching ? (
       <p className="mt-1 text-ink-muted">{t("forms.render.candidatesLoading")}</p>
+    ) : candidates !== undefined &&
+      input.connector === "" &&
+      !input.args.some((arg) => /^\s*limit\s*=/.test(arg)) &&
+      candidates.length >= CANDIDATES_LIMIT ? (
+      <p className="mt-1 text-ink-muted">
+        {t("forms.render.candidatesTruncated", { count: candidates.length })}
+      </p>
     ) : candidatesPath(input, data, user) === null ? (
       <p className="mt-1 text-ink-muted">{t("forms.render.candidatesWaiting")}</p>
+    ) : input.connector !== "" && formId === undefined ? (
+      <p className="mt-1 text-ink-muted">{t("forms.render.connectorUnsaved")}</p>
     ) : null;
 
   switch (input.type) {
@@ -514,7 +681,7 @@ function InputControl({
       return (
         <Switch
           checked={value === true}
-          label={input.label}
+          label={accessibleName}
           stateLabel={value === true ? t("forms.render.yes") : t("forms.render.no")}
           disabled={input.readOnly}
           onChange={(checked) => {
@@ -601,7 +768,8 @@ function InputControl({
   }
 
   // Candidates, static or fetched: a selection list, whether StrictCandidates is
-  // set or not, as the select2 list of the historical renderer.
+  // set or not, as the select2 list of the historical renderer. A single choice is
+  // filtered by typing, as select2 searched: a list of nodes runs to hundreds.
   if (input.candidates !== null || input.fn !== "") {
     const options: Candidate[] =
       input.candidates !== null
@@ -615,31 +783,80 @@ function InputControl({
     const selected = input.multiple ? asStrings(value) : [asString(value)];
     // A value outside the candidates, from a default, still shows.
     const extra = selected.filter((v) => v !== "" && !options.some((o) => o.id === v));
+    if (!input.multiple)
+      return (
+        <>
+          <Combobox
+            id={id}
+            style={style}
+            disabled={input.readOnly}
+            invalid={invalid}
+            describedBy={describedBy}
+            label={accessibleName}
+            options={[
+              ...extra.map((v) => ({ value: v, label: v })),
+              ...options.map((o) => ({ value: o.id, label: o.text })),
+            ]}
+            value={selected[0] ?? ""}
+            onChange={(v) => {
+              pick(v === "" ? [] : [v]);
+            }}
+            placeholder={input.placeholder || t("forms.render.selectCandidate")}
+            emptyText={t("forms.render.noCandidateMatch")}
+            inputClassName="h-8"
+          />
+          {candidateStatus}
+        </>
+      );
+    // Several choices: the chosen ones as tags, each removable, and a list
+    // filtered by typing to add one more, as the select2 tags of the historical
+    // renderer.
+    const remaining = options.filter((o) => !selected.includes(o.id));
     return (
       <>
-        <select
-          {...common}
-          multiple={input.multiple}
-          value={input.multiple ? selected : (selected[0] ?? "")}
-          onChange={(event) => {
-            pick([...event.target.selectedOptions].map((o) => o.value));
+        {selected.length > 0 && (
+          <ul className="mb-1 flex flex-wrap gap-1" aria-label={accessibleName}>
+            {selected.map((v) => (
+              <li
+                key={v}
+                className="flex items-center gap-1 rounded-(--radius-control) border border-line bg-surface-sunken py-0.5 pr-1 pl-2"
+              >
+                {options.find((o) => o.id === v)?.text ?? v}
+                {!input.readOnly && (
+                  <button
+                    type="button"
+                    title={t("forms.render.removeChoice")}
+                    aria-label={t("forms.render.removeChoiceNamed", {
+                      name: options.find((o) => o.id === v)?.text ?? v,
+                    })}
+                    onClick={() => {
+                      pick(selected.filter((other) => other !== v));
+                    }}
+                    className="rounded-(--radius-control) p-0.5 text-ink-muted hover:bg-surface hover:text-ink"
+                  >
+                    <CloseIcon className="h-3 w-3" />
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        <Combobox
+          id={id}
+          style={style}
+          disabled={input.readOnly || remaining.length === 0}
+          invalid={invalid}
+          describedBy={describedBy}
+          label={accessibleName}
+          options={remaining.map((o) => ({ value: o.id, label: o.text }))}
+          value=""
+          onChange={(v) => {
+            if (v !== "") pick([...selected, v]);
           }}
-          className={`w-full rounded-(--radius-control) border ${border} bg-surface px-2 text-ink ${input.multiple ? "min-h-24 py-1" : "h-8"}`}
-        >
-          {!input.multiple && (input.disableAutoDefault || selected[0] === "") && (
-            <option value="">{input.placeholder || t("forms.render.selectCandidate")}</option>
-          )}
-          {extra.map((v) => (
-            <option key={`extra-${v}`} value={v}>
-              {v}
-            </option>
-          ))}
-          {options.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.text}
-            </option>
-          ))}
-        </select>
+          placeholder={input.placeholder || t("forms.render.addCandidate")}
+          emptyText={t("forms.render.noCandidateMatch")}
+          inputClassName="h-8"
+        />
         {candidateStatus}
       </>
     );

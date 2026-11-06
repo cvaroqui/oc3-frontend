@@ -4,6 +4,9 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import type { components } from "@/lib/api/schema";
+import type { FiltersetSource } from "@/lib/filterset-entries";
+import { SelectionDeleteMenu } from "@/components/opensvc/SelectionDeleteMenu";
+import { problemText } from "@/lib/api/problem";
 import { api } from "@/lib/api/client";
 import { toPage } from "@/lib/api/page";
 import { CollectorList, type ListColumn } from "@/components/opensvc/CollectorList";
@@ -16,7 +19,8 @@ import {
   visibleProps,
   type ResolvedListSearch,
 } from "@/lib/list-search";
-import { filterQuery, filtersKey } from "@/lib/column-filters";
+import { filterQuery, filtersKey, type ColumnFilters } from "@/lib/column-filters";
+import { STATS_LIMIT, toValueStats, type ValueStats } from "@/lib/api/value-stats";
 import { useViewPrefs, withSavedSearch } from "@/lib/user-prefs";
 import { AppDetailPanel } from "./AppDetailPanel";
 import { CreateAppPanel } from "./CreateAppPanel";
@@ -62,10 +66,9 @@ const COLUMNS: ListColumn<AppRow>[] = APP_PROPS.map((prop) => ({
   labelKey: `apps.fields.${prop}`,
   numeric: NUMERIC_PROPS.has(prop),
   family: FAMILY[prop] ?? "node",
-  render: (row: AppRow, locale: string) => {
+  render: (row: AppRow) => {
     const value = row[prop];
-    if (DATE_PROPS.has(prop) && typeof value === "string")
-      return <DateTime value={value} locale={locale} />;
+    if (DATE_PROPS.has(prop) && typeof value === "string") return <DateTime value={value} />;
     return value;
   },
 }));
@@ -99,6 +102,17 @@ async function fetchApps(search: ResolvedListSearch) {
   return toPage(all, data.meta, search.limit);
 }
 
+/**
+ * The distribution of a column's values over the application codes the filters given keep,
+ * for its filter: the pagination does not apply.
+ */
+async function appStats(prop: string, filters: ColumnFilters): Promise<ValueStats> {
+  const query = { props: prop, stats: "1", limit: STATS_LIMIT, filter: filterQuery(filters) };
+  const response = await api.GET("/apps", { params: { query } });
+  if (response.error !== undefined) throw new Error(problemText(response.error));
+  return toValueStats(response.data.data, response.data.meta, prop);
+}
+
 function useApps(search: ResolvedListSearch) {
   return useQuery({
     queryKey: [
@@ -116,6 +130,11 @@ function useApps(search: ResolvedListSearch) {
   });
 }
 
+/**
+ * Filters saved as a filterset (SaveAsFilterset). Apps are rows of the apps table.
+ */
+const FILTERSET_SOURCE: FiltersetSource = { table: "apps", selects: "related" };
+
 export function AppsPage() {
   const { t } = useTranslation();
   const prefs = useViewPrefs("apps");
@@ -125,6 +144,16 @@ export function AppsPage() {
   );
   const navigate = useNavigate({ from: "/apps" });
   const { data, isPending, isError, error, isFetching } = useApps(search);
+  // The rows checked, and those just deleted, for the list to untick them.
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [deleted, setDeleted] = useState<string[]>([]);
+  // Names from the page on display: a selection extended to the following pages does
+  // not have them all, so the id then serves as a fallback in the messages.
+  const names = new Map<string, string>();
+  for (const row of data?.rows ?? []) {
+    const id = row.app;
+    if (id !== undefined && row.app !== undefined) names.set(id, row.app);
+  }
   const [creating, setCreating] = useState(false);
 
   /** Ids of the whole selection, filters included, without pagination. */
@@ -180,17 +209,35 @@ export function AppsPage() {
         >
           {t("apps.create.open")}
         </button>
+        {/* On the rows checked in the list; nothing checked, no menu. */}
+        <SelectionDeleteMenu
+          targets={selectedIds.map((id) => ({ id, name: names.get(id) ?? id }))}
+          prefix="apps.actions"
+          privileges={["AppManager"]}
+          remove={async (id) => {
+            const { error } = await api.DELETE("/apps/{app_id}", {
+              params: { path: { app_id: id } },
+            });
+            return error === undefined ? null : problemText(error);
+          }}
+          invalidate={[["apps"]]}
+          onDeleted={(ids) => {
+            setDeleted(ids);
+            // The detail of a deleted object has nothing left to show.
+            if (search.sel !== undefined && ids.includes(search.sel)) update({ sel: undefined });
+          }}
+        />
       </div>
 
       <CollectorList
+        viewPrefs={prefs}
+        valueStats={appStats}
         columns={COLUMNS}
         defaultCols={DEFAULT_COLS}
         rows={data?.rows ?? []}
         rowId={(row) => row.app}
         search={search}
         onChange={update}
-        // The collector's filtersets do not apply to application codes.
-        filtersets={[]}
         isPending={isPending}
         isFetching={isFetching}
         errorMessage={isError ? error.message : null}
@@ -198,7 +245,10 @@ export function AppsPage() {
         exportPage={(page) => fetchApps({ ...search, ...page })}
         total={data?.total}
         selectAllMatching={allIds}
+        onSelectionChange={setSelectedIds}
+        unselect={deleted}
         filterable
+        filtersetSource={FILTERSET_SOURCE}
       />
 
       <AppDetailPanel
@@ -206,6 +256,9 @@ export function AppsPage() {
         label={selected?.app ?? ""}
         onClose={() => {
           update({ sel: undefined });
+        }}
+        onRenamed={(code) => {
+          update({ sel: code });
         }}
       />
 

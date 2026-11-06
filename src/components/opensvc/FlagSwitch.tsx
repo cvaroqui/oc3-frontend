@@ -2,20 +2,31 @@ import { useTranslation } from "react-i18next";
 import { Switch } from "@/components/ui/Switch";
 
 /**
- * A T/F flag of the collector in a list cell, as the toggle of its `boolean` cells:
- * a read-only switch whose state is also announced. Any other value, such as the
+ * A flag of the collector in a list cell, as the toggle of its `boolean` cells: a
+ * read-only switch whose state is also announced. The flag is stored as `T`/`F`, or
+ * as the integer 1/0 of a column such as `svc_ha`. Any other value, such as the
  * empty one of a row without the flagged record, shows nothing. `labelKey` names the
- * flag for assistive technologies.
+ * flag for assistive technologies. Sized for a table row; `size="md"` outside one.
  */
-export function FlagSwitch({ value, labelKey }: { value: string | undefined; labelKey: string }) {
+export function FlagSwitch({
+  value,
+  labelKey,
+  size = "sm",
+}: {
+  value: string | number | undefined;
+  labelKey: string;
+  size?: "md" | "sm";
+}) {
   const { t } = useTranslation();
-  if (value !== "T" && value !== "F") return null;
+  const on = value === "T" || value === 1;
+  if (!on && value !== "F" && value !== 0) return null;
   return (
     <Switch
-      checked={value === "T"}
+      checked={on}
       label={t(labelKey)}
-      stateLabel={t(value === "T" ? "detail.yes" : "detail.no")}
+      stateLabel={t(on ? "detail.yes" : "detail.no")}
       disabled
+      size={size}
     />
   );
 }

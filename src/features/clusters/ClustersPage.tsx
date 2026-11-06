@@ -22,7 +22,8 @@ import {
   visibleProps,
   type ResolvedListSearch,
 } from "@/lib/list-search";
-import { filterQuery, filtersKey } from "@/lib/column-filters";
+import { filterQuery, filtersKey, type ColumnFilters } from "@/lib/column-filters";
+import { STATS_LIMIT, toValueStats, type ValueStats } from "@/lib/api/value-stats";
 import { useViewPrefs, withSavedSearch } from "@/lib/user-prefs";
 import { ClusterActionsMenu } from "./ClusterActionsMenu";
 import { ClusterDetailPanel } from "./ClusterDetailPanel";
@@ -165,6 +166,17 @@ async function fetchClusters(search: ResolvedListSearch) {
   return toPage(all, data.meta, search.limit);
 }
 
+/**
+ * The distribution of a column's values over the clusters the filters given keep,
+ * for its filter: the pagination does not apply.
+ */
+async function clusterStats(prop: string, filters: ColumnFilters): Promise<ValueStats> {
+  const query = { props: prop, stats: "1", limit: STATS_LIMIT, filter: filterQuery(filters) };
+  const response = await api.GET("/clusters", { params: { query } });
+  if (response.error !== undefined) throw new Error(problemText(response.error));
+  return toValueStats(response.data.data, response.data.meta, prop);
+}
+
 function useClusters(search: ResolvedListSearch) {
   return useQuery({
     queryKey: [
@@ -228,7 +240,8 @@ export function ClustersPage() {
 
   return (
     <section>
-      <div className="mb-3 flex items-center gap-3">
+      {/* As tall as the Actions button from the start: checking a row must not push the list down. */}
+      <div className="mb-3 flex min-h-7 items-center gap-3">
         <h1 className="flex items-center gap-2 text-title font-semibold">
           <ObjectIcon kind="cluster" className="h-5 w-5" />
           {t("clusters.title")}
@@ -241,14 +254,14 @@ export function ClustersPage() {
       <p className="mb-3 max-w-3xl text-ink-muted">{t("clusters.intro")}</p>
 
       <CollectorList
+        viewPrefs={prefs}
+        valueStats={clusterStats}
         columns={columns()}
         defaultCols={DEFAULT_COLS}
         rows={data?.rows ?? []}
         rowId={(row) => row.cluster_id}
         search={search}
         onChange={update}
-        // A filterset selects nodes and services, not clusters.
-        filtersets={[]}
         isPending={isPending}
         isFetching={isFetching}
         errorMessage={isError ? error.message : null}

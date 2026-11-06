@@ -18,8 +18,10 @@ import {
   visibleProps,
   type ResolvedListSearch,
 } from "@/lib/list-search";
-import { filterQuery, filtersKey } from "@/lib/column-filters";
+import { filterQuery, filtersKey, type ColumnFilters } from "@/lib/column-filters";
+import { STATS_LIMIT, toValueStats, type ValueStats } from "@/lib/api/value-stats";
 import { useViewPrefs, withSavedSearch } from "@/lib/user-prefs";
+import { SwitchPortDetailPanel } from "./SwitchPortDetailPanel";
 
 type SwitchPortRow = components["schemas"]["SwitchPortRow"];
 
@@ -73,7 +75,7 @@ const NUMERIC_PROPS: SwitchProp[] = ["sw_index", "sw_slot", "sw_port", "sw_ports
 /** Port names are WWNs or IQNs: compared character by character, hence monospaced. */
 const ADDRESS_PROPS: SwitchProp[] = ["sw_fabric", "sw_portname", "sw_rportname"];
 
-function renderCell(prop: SwitchProp, row: SwitchPortRow, locale: string) {
+function renderCell(prop: SwitchProp, row: SwitchPortRow) {
   const value = row[prop];
   if (prop === "sw_rname")
     // What is plugged on the other end is a node when the collector knows its HBA;
@@ -90,8 +92,7 @@ function renderCell(prop: SwitchProp, row: SwitchPortRow, locale: string) {
     return value === "T" || value === "F" ? (
       <FlagSwitch value={value} labelKey="switches.fields.sw_portnego" />
     ) : null;
-  if (prop === "sw_updated" && typeof value === "string")
-    return <DateTime value={value} locale={locale} />;
+  if (prop === "sw_updated" && typeof value === "string") return <DateTime value={value} />;
   if (ADDRESS_PROPS.includes(prop) && typeof value === "string" && value !== "")
     return <code>{value}</code>;
   return value;
@@ -107,7 +108,7 @@ const COLUMNS: ListColumn<SwitchPortRow>[] = SWITCH_PROPS.map((prop) => ({
   numeric: NUMERIC_PROPS.includes(prop),
   family: prop === "sw_updated" ? "time" : prop === "node_id" ? "node" : "network",
   filter: prop === "sw_portnego" ? { kind: "enum", options: FLAG_FILTER_OPTIONS } : undefined,
-  render: (row, locale) => renderCell(prop, row, locale),
+  render: (row) => renderCell(prop, row),
 }));
 
 const ALL_PROPS: string[] = [...SWITCH_PROPS];
@@ -115,6 +116,17 @@ const ALL_PROPS: string[] = [...SWITCH_PROPS];
 /** Columns shown, plus the row id and the node id the remote name links with. */
 function queryProps(cols: string[] | undefined): string {
   return [...new Set(["id", "node_id", ...visibleProps(cols, DEFAULT_COLS, ALL_PROPS)])].join(",");
+}
+
+/**
+ * The distribution of a column's values over the selection: the filters given
+ * apply, not the pagination.
+ */
+async function switchPortStats(prop: string, filters: ColumnFilters): Promise<ValueStats> {
+  const query = { props: prop, stats: "1", limit: STATS_LIMIT, filter: filterQuery(filters) };
+  const response = await api.GET("/san-switches", { params: { query } });
+  if (response.error !== undefined) throw new Error(problemText(response.error));
+  return toValueStats(response.data.data, response.data.meta, prop);
 }
 
 /**
@@ -158,7 +170,8 @@ function useSwitchPorts(search: ResolvedListSearch) {
 /**
  * Ports of the SAN switches the collector inventories: one row per port, with what
  * is plugged on its other end (a node, a storage array or another switch).
- * Read-only; the rows are filtered and sorted by the server.
+ * Read-only; the rows are filtered and sorted by the server, and a row opens its
+ * port in a panel.
  */
 export function SwitchesPage() {
   const { t } = useTranslation();
@@ -190,6 +203,8 @@ export function SwitchesPage() {
     });
   }
 
+  const selected = data?.rows.find((row) => String(row.id) === search.sel);
+
   return (
     <section>
       <h1 className="mb-3 flex items-center gap-2 text-title font-semibold">
@@ -199,14 +214,13 @@ export function SwitchesPage() {
       <p className="mb-3 max-w-3xl text-ink-muted">{t("switches.intro")}</p>
 
       <CollectorList
+        viewPrefs={prefs}
         columns={COLUMNS}
         defaultCols={DEFAULT_COLS}
         rows={data?.rows ?? []}
         rowId={(row) => (row.id === undefined ? undefined : String(row.id))}
         search={search}
         onChange={update}
-        // apicollector has no switches endpoint filtered by filterset.
-        filtersets={[]}
         isPending={isPending}
         isFetching={isFetching}
         errorMessage={isError ? error.message : null}
@@ -214,7 +228,16 @@ export function SwitchesPage() {
         exportPage={(page) => fetchSwitchPorts({ ...search, ...page })}
         total={data?.total}
         selectAllMatching={allIds}
+        valueStats={switchPortStats}
         filterable
+      />
+
+      <SwitchPortDetailPanel
+        portId={search.sel}
+        label={selected?.sw_name ?? ""}
+        onClose={() => {
+          update({ sel: undefined });
+        }}
       />
     </section>
   );

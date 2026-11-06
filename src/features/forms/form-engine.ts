@@ -29,6 +29,13 @@ export interface FormInput {
   candidates: { value: string; label: string }[] | null;
   /** Rest path of the dynamic candidates, "#key" references included. */
   fn: string;
+  /**
+   * The connector of an external API the candidates come from: oc3 calls it,
+   * fn being relative to its base url. Empty for the collector's own API.
+   */
+  connector: string;
+  /** Where the list is in the external API's answer, "items" or "data.results". */
+  resultPath: string;
   /** Whether a Function key is present, even empty: it enables dynamic defaults. */
   hasFunctionKey: boolean;
   args: string[];
@@ -91,8 +98,14 @@ function str(v: unknown): string {
       : "";
 }
 
+/**
+ * A YAML boolean as the historical collector read the forms, with PyYAML (YAML
+ * 1.1): yes, true and on, in any case. The YAML 1.2 parser of the SPA leaves
+ * "Yes" or "On" as strings, which would silently drop `ReadOnly: Yes` or
+ * `Mandatory: Yes`.
+ */
 function bool(v: unknown): boolean {
-  return v === true || v === "true" || v === "yes" || v === "True";
+  return v === true || (typeof v === "string" && /^(yes|true|on)$/i.test(v));
 }
 
 /**
@@ -161,6 +174,8 @@ export function parseDefinition(raw: unknown): FormDefinition | null {
       default: def,
       candidates,
       fn,
+      connector: str(item.Connector),
+      resultPath: str(item.ResultPath),
       hasFunctionKey: "Function" in item,
       args,
       value: str(item.Value),
@@ -269,23 +284,36 @@ export function isEmptyValue(v: unknown): boolean {
  * subst_refs_from_data() does: a reference without a scalar value stays.
  */
 export function substRefs(data: unknown, s: string): string {
-  if (!isRecord(data)) return s;
-  return s.replace(/#[\w.]+/g, (ref) => {
-    const path = ref.slice(1);
-    let finalDot = "";
-    let val: unknown = data;
-    for (const key of path.split(".")) {
-      if (key === "") {
-        finalDot = ".";
-        break;
-      }
-      if (isRecord(val) && key in val) val = val[key];
+  return s.replace(REF, (ref) => refValue(data, ref) ?? ref);
+}
+
+/** A "#key" or "#a.b" reference to the data of a form. */
+const REF = /#[\w.]+/g;
+
+/** The value of a reference in data, as substRefs reads it; undefined without a scalar one. */
+function refValue(data: unknown, ref: string): string | undefined {
+  if (!isRecord(data)) return undefined;
+  const path = ref.slice(1);
+  // oc3 returns the columns of a joined table under flat keys, "stor_array.id",
+  // where the historical API nested them: the whole reference first, then its
+  // path, a trailing dot left as text.
+  const flat = path.replace(/\.$/, "");
+  const direct = data[flat];
+  if (typeof direct === "string" || typeof direct === "number" || typeof direct === "boolean")
+    return String(direct) + (flat === path ? "" : ".");
+  let finalDot = "";
+  let val: unknown = data;
+  for (const key of path.split(".")) {
+    if (key === "") {
+      finalDot = ".";
+      break;
     }
-    if (typeof val === "string" || typeof val === "number" || typeof val === "boolean") {
-      return String(val) + finalDot;
-    }
-    return ref;
-  });
+    if (isRecord(val) && key in val) val = val[key];
+  }
+  if (typeof val === "string" || typeof val === "number" || typeof val === "boolean") {
+    return String(val) + finalDot;
+  }
+  return undefined;
 }
 
 /**
@@ -315,17 +343,128 @@ export function prepareArgs(
   return out;
 }
 
+/** Candidates fetched at most, when the Args of the input do not set a limit. */
+export const CANDIDATES_LIMIT = 500;
+
+/**
+ * The query of a rest candidates call: the Args of the input, the filters of the
+ * historical collector translated into oc3 list filters (`legacyFilter`), and a
+ * limit, which the historical renderer set by pages of 10 and oc3 sets to 50 when
+ * none is given. Throws when a filter has no oc3 equivalent: better to say so
+ * than to offer candidates the form meant to leave out.
+ */
+export function candidatesQuery(
+  args: Record<string, string | string[]>,
+): Record<string, string | string[]> {
+  const query: Record<string, string | string[]> = {};
+  const filter: string[] = [];
+  for (const [key, value] of Object.entries(args)) {
+    const values = Array.isArray(value) ? value : [value];
+    if (key === "filters") filter.push(...values.flatMap(legacyFilter));
+    else if (key === "filter") filter.push(...values);
+    else query[key] = value;
+  }
+  if (filter.length > 0) query.filter = filter;
+  if (query.limit === undefined) query.limit = String(CANDIDATES_LIMIT);
+  return query;
+}
+
+/**
+ * The oc3 list filters ("prop:expr") of a filter of the historical collector,
+ * "prop expr", as _where() reads the expression: chunks joined by & (all) or |
+ * (any), each negated by a leading "!", one of "empty", "(a,b)" (one of), ">v",
+ * "<v", "=v", a LIKE pattern when it holds a % (where _ is any character too),
+ * or a value, equal. Several & chunks
+ * make as many oc3 filters, which combine with AND; | chunks of values and
+ * patterns make one regular expression. A mix of & and |, which _where() leaves
+ * out rather than guess the order, filters nothing, as there; "%" alone too.
+ */
+export function legacyFilter(raw: string): string[] {
+  const prop = /^[.\w]+/.exec(raw)?.[0];
+  if (prop === undefined) throw new Error(`invalid filter "${raw}": no property`);
+  let expr = raw.slice(prop.length).trim();
+  if (expr.startsWith("|")) expr = expr.slice(1);
+  if (expr === "" || expr === "%" || (expr.includes("&") && expr.includes("|"))) return [];
+  if (expr.includes("|")) {
+    const alternatives = expr.split("|").filter((chunk) => chunk !== "");
+    const fragments = alternatives.map((chunk) => {
+      const fragment = chunkRegex(chunk);
+      if (fragment === null)
+        throw new Error(`unsupported filter "${raw}": "${chunk}" in an alternative`);
+      return fragment;
+    });
+    return [`${prop}:~^(${fragments.join("|")})$`];
+  }
+  return expr
+    .split("&")
+    .filter((chunk) => chunk !== "")
+    .map((chunk) => `${prop}:${legacyChunk(chunk)}`);
+}
+
+/** The oc3 filter expression of one chunk of a historical filter. */
+function legacyChunk(chunk: string): string {
+  if (chunk.startsWith("!") && chunk.length > 1) return `!${legacyChunk(chunk.slice(1))}`;
+  if (chunk === "empty" || chunk === "=empty") return "empty";
+  if (chunk.length > 2 && chunk.startsWith("(") && chunk.endsWith(")"))
+    return `in:${chunk.slice(1, -1)}`;
+  const op = /^(>=|<=|[<>=])/.exec(chunk)?.[0];
+  if (op !== undefined) {
+    const value = chunk.slice(op.length);
+    return `${{ ">=": "gte", "<=": "lte", ">": "gt", "<": "lt", "=": "eq" }[op]}:${value}`;
+  }
+  const value = chunk.replace(/^~/, "");
+  return value.includes("%") ? `~^${likeRegex(value)}$` : `eq:${value}`;
+}
+
+/** A value or a LIKE pattern as a fragment of regular expression; null for anything else. */
+function chunkRegex(chunk: string): string | null {
+  if (chunk.startsWith("!") || chunk === "empty" || /^[<>=(]/.test(chunk)) return null;
+  const value = chunk.replace(/^~/, "");
+  return value.includes("%") ? likeRegex(value) : escapeRegex(value);
+}
+
+/** A LIKE pattern as a regular expression: % any text, _ one character. */
+function likeRegex(pattern: string): string {
+  return [...pattern].map((c) => (c === "%" ? ".*" : c === "_" ? "." : escapeRegex(c))).join("");
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /**
  * The rest path of dynamic candidates, references replaced; null while data is
  * missing to build it, as getUrlFunc() cancels the call.
+ *
+ * A value replacing a reference is data, a user's answer say: it is encoded as
+ * the text of one path segment (encodeURIComponent), so that a "/", "?" or "%"
+ * in it cannot change the endpoint called or add a query; a value holding a "#"
+ * makes the path wait, as an unresolved reference does. The path is refused,
+ * null, when a segment ends up empty, is a dot segment (".." or "%2e%2e", which
+ * the URL parser resolves alike), or holds a question mark or a backslash written
+ * in the form itself: the call stays on the endpoint the form names.
  */
 export function candidatesPath(input: FormInput, data: unknown, user: FormUser): string | null {
-  if (input.fn === "") return null;
-  const fn = substRefs(data, input.fn.replaceAll("#user_id", user.id));
+  const fn = input.fn.trim();
   if (!fn.startsWith("/")) return null;
-  if (fn.includes("//") || fn.includes("/undefined/") || fn.endsWith("/") || fn.includes("#"))
-    return null;
-  return fn;
+  const segments = fn
+    .slice(1)
+    .split("/")
+    .map((segment) =>
+      segment.replaceAll("#user_id", encodeURIComponent(user.id)).replace(REF, (ref) => {
+        const value = refValue(data, ref);
+        // A value holding a "#" is a reference not resolved yet, the text of an
+        // empty input say: the path waits, as getUrlFunc() waits on a "#".
+        return value === undefined || value.includes("#") ? ref : encodeURIComponent(value);
+      }),
+    );
+  for (const segment of segments) {
+    // A reference left unresolved: the data to build the path is missing yet.
+    if (segment.includes("#")) return null;
+    if (segment === "" || segment === "undefined") return null;
+    if (/^(?:\.|%2e){1,2}$/i.test(segment) || /[?\\]/.test(segment)) return null;
+  }
+  return `/${segments.join("/")}`;
 }
 
 /** A candidate of a select: its id, its label, and the row it comes from. */
@@ -336,6 +475,33 @@ export interface Candidate {
 }
 
 /** Candidates of a rest answer, id and label read as getProcessResultFunc() does. */
+/**
+ * A candidate row in the shape the historical API gave it, which the forms are
+ * written against. oc3 returns the columns of joined tables under flat keys,
+ * "stor_array.id"; the historical API returned pydal's as_list(): a row nested
+ * by table when the columns came from several tables, `{stor_array: {id}}`, and
+ * plain columns when they came from a single one, `{id}`. A form then reads
+ * `#id`, or `#stor_array.id`, whose missing segment substRefs skips.
+ */
+export function legacyRowShape(row: Record<string, unknown>): Record<string, unknown> {
+  const tables: Record<string, Record<string, unknown>> = {};
+  const plain: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(row)) {
+    const dot = key.indexOf(".");
+    if (dot <= 0) {
+      plain[key] = value;
+      continue;
+    }
+    const table = key.slice(0, dot);
+    (tables[table] ??= {})[key.slice(dot + 1)] = value;
+  }
+  const names = Object.keys(tables);
+  if (names.length === 0) return row;
+  const only = names.length === 1 ? tables[names[0] ?? ""] : undefined;
+  if (only !== undefined && Object.keys(plain).length === 0) return only;
+  return { ...plain, ...tables };
+}
+
 export function restCandidates(
   input: FormInput,
   rows: unknown[],
@@ -347,9 +513,10 @@ export function restCandidates(
     idProp = typeof props === "string" ? (props.split(",")[0] ?? "") : input.key;
   }
   idProp = idProp.replace("#", "");
-  return rows.map((row) => {
-    if (typeof row === "string" || typeof row === "number")
-      return { id: String(row), text: String(row) };
+  return rows.map((raw) => {
+    if (typeof raw === "string" || typeof raw === "number")
+      return { id: String(raw), text: String(raw) };
+    const row = isRecord(raw) ? legacyRowShape(raw) : raw;
     const id = substRefs(row, `#${idProp}`);
     return { id, text: input.format === "" ? id : substRefs(row, input.format), data: row };
   });
@@ -562,6 +729,8 @@ export interface GroupState {
   values: Record<string, InputValue>;
   /** Candidate rows of the selected options, for the Keys references. */
   optionData: Record<string, unknown>;
+  /** Identity of an entry of a repeated form, kept while entries come and go. */
+  uid?: number;
 }
 
 /**

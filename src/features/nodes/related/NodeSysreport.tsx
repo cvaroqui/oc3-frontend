@@ -23,6 +23,9 @@ import {
   type SysreportFileDiff,
 } from "./queries";
 import { periodBegin, type Period } from "./sysreport-period";
+import { SysreportPurgeForm, SysreportPurgeTracker, type PurgeTarget } from "./SysreportPurge";
+import { useEffectivePrivileges } from "@/lib/api/effective-privileges";
+import { dateTimeFormat } from "@/lib/date-format";
 
 type Mode = "changes" | "files";
 type Kind = "file" | "command";
@@ -95,6 +98,10 @@ export function NodeSysreport({ nodeId, locale }: { nodeId: string; locale: stri
   // The revision the Files view shows: the latest report unless a change was chosen.
   const [at, setAt] = useState<{ cid: string; date: string } | null>(null);
   const [filesFilter, setFilesFilter] = useState("");
+  // The purge asked from the Files view, followed here: the row it was asked
+  // from leaves with the file.
+  const [purge, setPurge] = useState<PurgeTarget | null>(null);
+  const canPurge = useEffectivePrivileges().data?.has("Manager") === true;
 
   const needle = useDebounced(path.trim(), 250);
   const timeline = useNodeSysreport(nodeId, { path: needle, begin: periodBegin(period), limit });
@@ -241,7 +248,7 @@ export function NodeSysreport({ nodeId, locale }: { nodeId: string; locale: stri
             <p className="text-ink-muted">
               {at === null
                 ? t("nodes.sysreport.files.latest")
-                : t("nodes.sysreport.files.at", { date: formatMoment(at.date, locale) })}
+                : t("nodes.sysreport.files.at", { date: formatMoment(at.date) })}
             </p>
             {at !== null && (
               <button
@@ -262,7 +269,6 @@ export function NodeSysreport({ nodeId, locale }: { nodeId: string; locale: stri
         {mode === "changes" ? (
           <Changes
             nodeId={nodeId}
-            locale={locale}
             changes={timeline.data?.changes}
             total={timeline.data?.total ?? 0}
             isPending={timeline.isPending}
@@ -294,6 +300,16 @@ export function NodeSysreport({ nodeId, locale }: { nodeId: string; locale: stri
               setLimit(PAGE);
               select("changes");
             }}
+            onPurgeQueued={canPurge ? setPurge : undefined}
+          />
+        )}
+        {purge !== null && (
+          <SysreportPurgeTracker
+            nodeId={nodeId}
+            target={purge}
+            onDismiss={() => {
+              setPurge(null);
+            }}
           />
         )}
       </div>
@@ -315,17 +331,16 @@ function useDebounced(value: string, delay: number): string {
   return debounced;
 }
 
-function formatMoment(date: string, locale: string): string {
+function formatMoment(date: string): string {
   const parsed = new Date(date);
   return Number.isNaN(parsed.getTime())
     ? date
-    : new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(parsed);
+    : dateTimeFormat({ dateStyle: "medium", timeStyle: "short" }).format(parsed);
 }
 
 /** The reports that changed something, grouped by day, each unfolding in place. */
 function Changes({
   nodeId,
-  locale,
   changes,
   total,
   isPending,
@@ -338,7 +353,6 @@ function Changes({
   onBrowse,
 }: {
   nodeId: string;
-  locale: string;
   changes: SysreportChange[] | undefined;
   total: number;
   isPending: boolean;
@@ -377,9 +391,9 @@ function Changes({
       </p>
     );
 
-  const day = new Intl.DateTimeFormat(locale, { dateStyle: "full" });
-  const time = new Intl.DateTimeFormat(locale, { timeStyle: "short" });
-  const moment = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" });
+  const day = dateTimeFormat({ dateStyle: "full" });
+  const time = dateTimeFormat({ timeStyle: "short" });
+  const moment = dateTimeFormat({ dateStyle: "medium", timeStyle: "short" });
   const days: { label: string; entries: typeof shown }[] = [];
   for (const entry of shown) {
     const label = day.format(new Date(entry.change.date));
@@ -393,7 +407,6 @@ function Changes({
       {comparing && (
         <Comparison
           nodeId={nodeId}
-          locale={locale}
           picked={picked}
           kinds={kinds}
           needle={needle}
@@ -585,14 +598,12 @@ function FileDiffList({ files }: { files: SysreportFileDiff[] }) {
  */
 function Comparison({
   nodeId,
-  locale,
   picked,
   kinds,
   needle,
   onClear,
 }: {
   nodeId: string;
-  locale: string;
   picked: SysreportChange[];
   kinds: Record<Kind, boolean>;
   needle: string;
@@ -614,7 +625,7 @@ function Comparison({
         <p className="text-ink-muted">{t("nodes.sysreport.compare.none")}</p>
       ) : !ready ? (
         <p className="flex flex-wrap items-center gap-2 text-ink-muted">
-          {t("nodes.sysreport.compare.one", { date: formatMoment(begin.date, locale) })}
+          {t("nodes.sysreport.compare.one", { date: formatMoment(begin.date) })}
           <button
             type="button"
             onClick={() => {
@@ -628,7 +639,6 @@ function Comparison({
       ) : (
         <ComparisonResult
           nodeId={nodeId}
-          locale={locale}
           begin={begin}
           end={end}
           kinds={kinds}
@@ -645,7 +655,6 @@ function Comparison({
 
 function ComparisonResult({
   nodeId,
-  locale,
   begin,
   end,
   kinds,
@@ -653,7 +662,6 @@ function ComparisonResult({
   onClear,
 }: {
   nodeId: string;
-  locale: string;
   begin: SysreportChange;
   end: SysreportChange | undefined;
   kinds: Record<Kind, boolean>;
@@ -683,8 +691,8 @@ function ComparisonResult({
       <div className="flex flex-wrap items-center gap-3">
         <h3 className="font-semibold">
           {t("nodes.sysreport.compare.title", {
-            begin: formatMoment(diff.data.begin.date, locale),
-            end: formatMoment(diff.data.end.date, locale),
+            begin: formatMoment(diff.data.begin.date),
+            end: formatMoment(diff.data.end.date),
           })}
         </h3>
         <span className="text-ink-muted">
@@ -789,6 +797,7 @@ function Files({
   errorMessage,
   filter,
   onHistory,
+  onPurgeQueued,
 }: {
   nodeId: string;
   locale: string;
@@ -798,6 +807,8 @@ function Files({
   errorMessage: string | null;
   filter: string;
   onHistory: (entry: SysreportEntry) => void;
+  /** Offered to a Manager: removing the file from the history for good. */
+  onPurgeQueued?: (target: PurgeTarget) => void;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState<string | null>(null);
@@ -880,6 +891,7 @@ function Files({
                       onHistory={() => {
                         onHistory(entry);
                       }}
+                      onPurgeQueued={onPurgeQueued}
                     />
                   )}
                 </li>
@@ -898,14 +910,17 @@ function FileContent({
   cid,
   entry,
   onHistory,
+  onPurgeQueued,
 }: {
   nodeId: string;
   cid: string;
   entry: SysreportEntry;
   onHistory: () => void;
+  onPurgeQueued?: (target: PurgeTarget) => void;
 }) {
   const { t } = useTranslation();
   const file = useNodeSysreportFile(nodeId, cid, entry.oid, true);
+  const [purging, setPurging] = useState(false);
   const [copied, setCopied] = useState(false);
   const timer = useRef<number | undefined>(undefined);
   useEffect(
@@ -931,6 +946,18 @@ function FileContent({
         <button type="button" onClick={onHistory} className="text-accent hover:underline">
           {t("nodes.sysreport.files.history")}
         </button>
+        {onPurgeQueued !== undefined && (
+          <button
+            type="button"
+            aria-expanded={purging}
+            onClick={() => {
+              setPurging(!purging);
+            }}
+            className="text-state-down hover:underline"
+          >
+            {t("nodes.sysreport.purge.open")}
+          </button>
+        )}
         {content !== undefined && (
           <button
             type="button"
@@ -949,6 +976,19 @@ function FileContent({
           </button>
         )}
       </div>
+      {purging && onPurgeQueued !== undefined && (
+        <SysreportPurgeForm
+          nodeId={nodeId}
+          entry={entry}
+          onQueued={(target) => {
+            setPurging(false);
+            onPurgeQueued(target);
+          }}
+          onCancel={() => {
+            setPurging(false);
+          }}
+        />
+      )}
       {content === undefined ? (
         <p className="text-ink-muted">{t("nodes.sysreport.file.binary")}</p>
       ) : content === "" ? (

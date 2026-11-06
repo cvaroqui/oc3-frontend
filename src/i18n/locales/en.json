@@ -9,11 +9,17 @@
     "menuShortcut": "Press n to move to the menu",
     "categories": {
       "infrastructure": "Infrastructure",
-      "dataManagement": "Data Management",
       "requests": "Requests",
       "compliance": "Compliance",
-      "administration": "Administration",
-      "statistics": "Statistics"
+      "statistics": "Statistics",
+      "inventory": "Inventory",
+      "access": "Access",
+      "inventoryData": "Inventory data",
+      "reporting": "Reporting",
+      "filtering": "Filtering",
+      "audit": "Audit",
+      "checks": "Checks",
+      "orchestration": "Orchestration"
     },
     "apps": "Apps",
     "networks": "Networks",
@@ -23,7 +29,9 @@
     "users": "Users",
     "instances": "Service Instances",
     "obsolescence": "Obsolescence",
-    "logs": "Logs",
+    "logs": "Audit log",
+    "claimMappings": "Claim mappings",
+    "fieldConstraints": "Field values",
     "filters": "Filters",
     "filtersets": "Filtersets",
     "metrics": "Metrics",
@@ -39,11 +47,34 @@
     "tiersRequests": "Pending tiers action",
     "modulesets": "Modulesets",
     "rulesets": "Rulesets",
+    "complianceStatus": "Status",
     "complianceLogs": "Logs",
     "designer": "Designer",
     "statReports": "Reports",
     "clusters": "Clusters",
-    "resources": "Resources"
+    "resources": "Resources",
+    "serviceActions": "Actions",
+    "filter": "Filter the menu",
+    "clearFilter": "Clear the menu filter",
+    "noMatch": "No menu entry matches.",
+    "views": {
+      "operator": "Operator",
+      "admin": "Admin"
+    },
+    "viewLabel": "Menu view",
+    "inView": "In {{view}}",
+    "safe": "Safe",
+    "ai": "AI assistant",
+    "checks": "Checks",
+    "checkDefaults": "Check defaults",
+    "checkContextual": "Contextual thresholds",
+    "complianceAttachments": "Attachments",
+    "orchestrations": "Workflows",
+    "orchestrationRuns": "Runs",
+    "formConnectors": "Form connectors",
+    "compModules": "Modules",
+    "quotas": "Disk quotas",
+    "saves": "Backups"
   },
   "shortcuts": {
     "title": "Keyboard shortcuts",
@@ -54,7 +85,9 @@
     "menuMove": "In the menu: move between entries, Enter opens",
     "escape": "Close the panel, a list or this help; leave the menu",
     "help": "Show this list",
-    "hint": "Single keys act when no field has the focus."
+    "hint": "Single keys act when no field has the focus.",
+    "menuView": "Switch the menu between Operator and Admin",
+    "refresh": "Read the data of the views again"
   },
   "header": {
     "search": "Search the collector",
@@ -69,7 +102,12 @@
     "sessionFilterNoMatch": "No filterset matches",
     "sessionFilterFailed": "Not applied",
     "sessionFilterImpersonating": "The session filter of the user you act as: it cannot be changed while acting as another user.",
-    "sessionFilterClear": "Remove the session filter"
+    "sessionFilterClear": "Remove the session filter",
+    "accountMenuOf": "Account menu: {{user}}",
+    "signedInAs": "Signed in as {{user}}",
+    "apiDocs": "API documentation",
+    "newTab": "(opens in a new tab)",
+    "opensvcDocs": "OpenSVC documentation"
   },
   "state": {
     "up": "up",
@@ -79,6 +117,11 @@
     "frozen": "Frozen",
     "thawed": "Not frozen",
     "frozenMixed": "Partly frozen"
+  },
+  "reporting": {
+    "outdated": "No report for more than {{minutes}} minutes: the statuses shown are the last ones received",
+    "lastKnown": "Last status reported, too long ago to be current",
+    "never": "never"
   },
   "nodes": {
     "title": "Nodes",
@@ -169,7 +212,8 @@
         "hardware": "Hardware",
         "system": "System",
         "location": "Location",
-        "agent": "OpenSVC Agent"
+        "agent": "OpenSVC Agent",
+        "virtualization": "Virtualization"
       }
     },
     "create": {
@@ -187,11 +231,27 @@
       "alerts": "Alerts",
       "networks": "Networks",
       "packages": "Packages",
-      "inventory": "Inventory",
       "sysreport": "Sysreport",
+      "compliance": "Compliance",
       "logs": "Logs",
       "stats": "Stats",
-      "checks": "Checks"
+      "checks": "Checks",
+      "services": "Services",
+      "actions": "Actions",
+      "descriptions": {
+        "services": "Instances hosted on the node",
+        "actions": "What the agents ran on it",
+        "hardware": "Components the agent inventoried",
+        "networks": "Addresses and their networks",
+        "storage": "Adapters and disks",
+        "packages": "Installed software",
+        "sysreport": "Files changed over time",
+        "stats": "Performance over time",
+        "alerts": "Open alerts",
+        "checks": "Values against their thresholds",
+        "compliance": "Modules checked and fixed",
+        "logs": "Collector log of the node"
+      }
     },
     "actions": {
       "open": "Actions",
@@ -216,17 +276,33 @@
         "updatecomp": "Update compliance modules",
         "updatepkg": "Update OpenSVC agent",
         "freeze": "Freeze",
-        "thaw": "Thaw",
+        "thaw": "Unfreeze",
         "reboot": "Reboot",
         "schedule_reboot": "Schedule a reboot",
         "unschedule_reboot": "Unschedule the reboot",
         "drain": "Drain",
         "shutdown": "Shut down"
       },
+      "menu": {
+        "pushasset": "Node information",
+        "checks": "Check values",
+        "sysreport": "Sysreport",
+        "pushdisks": "Disks",
+        "pushpkg": "Installed packages",
+        "pushpatch": "Installed patches",
+        "pushstats": "Performance stats",
+        "compliance_check": "Check",
+        "compliance_fix": "Fix",
+        "updatecomp": "Update modules",
+        "updatepkg": "Update OpenSVC agent",
+        "scanscsi": "Rescan SCSI hosts",
+        "reboot": "Reboot now"
+      },
       "groups": {
-        "inventory": "Inventory",
+        "refresh": "Refresh data",
         "compliance": "Compliance",
-        "agent": "Agent",
+        "orchestration": "Orchestration",
+        "maintenance": "Maintenance",
         "power": "Reboot and shutdown"
       },
       "data": {
@@ -238,8 +314,112 @@
           "confirm_other": "Delete {{count}} nodes",
           "running": "Deleting…",
           "done_one": "1 node deleted.",
-          "done_other": "{{count}} nodes deleted."
+          "done_other": "{{count}} nodes deleted.",
+          "description": "Remove the node and all its records from the collector: instances, alerts, checks, packages, tags."
+        },
+        "notificationsOn": {
+          "label": "Turn notifications on",
+          "question_one": "Turn on the notifications of the alerts of this node?",
+          "question_other": "Turn on the notifications of the alerts of these {{count}} nodes?",
+          "confirm_one": "Turn on",
+          "confirm_other": "Turn on for {{count}} nodes",
+          "running": "Turning on…",
+          "done_one": "Notifications turned on for 1 node.",
+          "done_other": "Notifications turned on for {{count}} nodes.",
+          "description": "The collector sends the notifications of the node again."
+        },
+        "notificationsOff": {
+          "label": "Turn notifications off",
+          "question_one": "Turn off the notifications of the alerts of this node? Its alerts are still raised, but no longer sent.",
+          "question_other": "Turn off the notifications of the alerts of these {{count}} nodes? Their alerts are still raised, but no longer sent.",
+          "confirm_one": "Turn off",
+          "confirm_other": "Turn off for {{count}} nodes",
+          "running": "Turning off…",
+          "done_one": "Notifications turned off for 1 node.",
+          "done_other": "Notifications turned off for {{count}} nodes.",
+          "description": "The collector stops sending the notifications of the node."
+        },
+        "tagAttach": {
+          "label": "Attach a tag",
+          "question_one": "Attach a tag to this node:",
+          "question_other": "Attach a tag to these {{count}} nodes:",
+          "confirm_one": "Attach",
+          "confirm_other": "Attach to {{count}} nodes",
+          "running": "Attaching…",
+          "done_one": "Tag {{choice}} attached to 1 node.",
+          "done_other": "Tag {{choice}} attached to {{count}} nodes.",
+          "choice": "Tag",
+          "description": "Attach a tag to the node."
+        },
+        "modulesetAttach": {
+          "label": "Attach a moduleset",
+          "question_one": "Attach a moduleset to this node:",
+          "question_other": "Attach a moduleset to these {{count}} nodes:",
+          "confirm_one": "Attach",
+          "confirm_other": "Attach to {{count}} nodes",
+          "running": "Attaching…",
+          "done_one": "Moduleset {{choice}} attached to 1 node.",
+          "done_other": "Moduleset {{choice}} attached to {{count}} nodes.",
+          "choice": "Moduleset",
+          "description": "Attach a compliance moduleset to the node."
+        },
+        "modulesetDetach": {
+          "label": "Detach a moduleset",
+          "question_one": "Detach a moduleset from this node:",
+          "question_other": "Detach a moduleset from these {{count}} nodes:",
+          "confirm_one": "Detach",
+          "confirm_other": "Detach from {{count}} nodes",
+          "running": "Detaching…",
+          "done_one": "Moduleset {{choice}} detached from 1 node.",
+          "done_other": "Moduleset {{choice}} detached from {{count}} nodes.",
+          "choice": "Moduleset",
+          "description": "Detach a compliance moduleset from the node."
+        },
+        "rulesetAttach": {
+          "label": "Attach a ruleset",
+          "question_one": "Attach a ruleset to this node:",
+          "question_other": "Attach a ruleset to these {{count}} nodes:",
+          "confirm_one": "Attach",
+          "confirm_other": "Attach to {{count}} nodes",
+          "running": "Attaching…",
+          "done_one": "Ruleset {{choice}} attached to 1 node.",
+          "done_other": "Ruleset {{choice}} attached to {{count}} nodes.",
+          "choice": "Ruleset (explicit and public)",
+          "description": "Attach a compliance ruleset to the node."
+        },
+        "rulesetDetach": {
+          "label": "Detach a ruleset",
+          "question_one": "Detach a ruleset from this node:",
+          "question_other": "Detach a ruleset from these {{count}} nodes:",
+          "confirm_one": "Detach",
+          "confirm_other": "Detach from {{count}} nodes",
+          "running": "Detaching…",
+          "done_one": "Ruleset {{choice}} detached from 1 node.",
+          "done_other": "Ruleset {{choice}} detached from {{count}} nodes.",
+          "choice": "Ruleset (explicit and public)",
+          "description": "Detach a compliance ruleset from the node."
         }
+      },
+      "descriptions": {
+        "pushasset": "The agent sends the hardware and system inventory of the node to the collector.",
+        "checks": "The agent reads its checks (file systems, links, multipaths…) and sends their values.",
+        "sysreport": "The agent sends the system report: the changes of the files it follows.",
+        "pushdisks": "The agent sends the disks of the node and their use.",
+        "pushpkg": "The agent sends the packages installed on the node.",
+        "pushpatch": "The agent sends the patches installed on the node.",
+        "pushstats": "The agent sends its performance statistics.",
+        "compliance_check": "Check the compliance modules attached to the node, changing nothing.",
+        "compliance_fix": "Fix what the compliance modules attached to the node find wrong.",
+        "updatecomp": "Update the compliance modules on the node.",
+        "freeze": "The daemon stops orchestrating the instances of the node.",
+        "thaw": "The daemon orchestrates the instances of the node again.",
+        "drain": "Freeze the node and stop every instance it hosts.",
+        "updatepkg": "Update the OpenSVC agent of the node from its repository.",
+        "scanscsi": "Look for new disks on the SCSI buses.",
+        "schedule_reboot": "The node reboots at its next reboot schedule.",
+        "unschedule_reboot": "The scheduled reboot does not happen.",
+        "reboot": "Reboot the node now: the instances it hosts stop.",
+        "shutdown": "Power the node off: the instances it hosts stop."
       }
     },
     "hardware": {
@@ -258,19 +438,29 @@
         "hw_description": "Description",
         "hw_driver": "Driver"
       },
-      "openView": "Open in the Nodes Hardware view"
+      "openView": "Open in the Nodes Hardware view",
+      "search": "Search a component",
+      "count_one": "{{count}} component",
+      "count_other": "{{count}} components",
+      "matching_one": "{{count}} of {{total}} component",
+      "matching_other": "{{count}} of {{total}} components",
+      "noMatch": "No component matches the search."
     },
     "alerts": {
       "open": "Open in the dashboard",
-      "empty": "No alert on this node."
+      "empty": "No alert on this node.",
+      "search": "Search an alert",
+      "count_one": "{{count}} alert",
+      "count_other": "{{count}} alerts",
+      "matching_one": "{{count}} of {{total}} alert",
+      "matching_other": "{{count}} of {{total}} alerts",
+      "noMatch": "No alert matches the search."
     },
     "stats": {
       "period": "Period",
       "days_one": "Last 24 hours",
       "days_other": "Last {{count}} days",
       "empty": "No performance statistics recorded for this node over the period.",
-      "chartLabel_one": "{{name}}, last 24 hours",
-      "chartLabel_other": "{{name}}, last {{count}} days",
       "charts": {
         "cpu": "CPU",
         "load": "Load",
@@ -283,7 +473,18 @@
         "netErrors": "Network errors",
         "diskUtil": "Disk utilization",
         "diskWait": "Disk wait",
-        "diskOps": "Disk transfers"
+        "diskOps": "Disk transfers",
+        "fsUsed": "File system usage",
+        "fsSize": "File system size",
+        "svcCpu": "Container CPU usage",
+        "svcCpuCap": "Container CPU cap",
+        "svcMem": "Container memory usage",
+        "svcMemCap": "Container memory cap",
+        "svcRss": "Container resident memory",
+        "svcSwap": "Container swap",
+        "svcNproc": "Container processes",
+        "svcPg": "Container paging",
+        "svcAt": "Container active memory"
       },
       "metrics": {
         "usr": "user",
@@ -317,13 +518,41 @@
         "txdropps": "tx drops",
         "pct_util": "utilization",
         "await": "wait",
-        "tps": "transfers"
-      }
+        "tps": "transfers",
+        "used": "used",
+        "size": "size",
+        "cpu": "cpu",
+        "cap_cpu": "cpu cap",
+        "mem": "memory",
+        "cap": "memory cap",
+        "rss": "rss",
+        "swap": "swap",
+        "nproc": "processes",
+        "pg": "paging",
+        "avgpg": "average paging",
+        "at": "active",
+        "avgat": "average active"
+      },
+      "custom": "Custom range",
+      "begin": "From",
+      "end": "To",
+      "range": "{{begin}} to {{end}}",
+      "invalidRange_one": "Pick a start date on or before the end date, over {{count}} day at most.",
+      "invalidRange_other": "Pick a start date on or before the end date, over {{count}} days at most.",
+      "chartLabel": "{{name}}, {{period}}",
+      "otherMax": "Others, highest"
     },
     "logs": {
       "empty": "No log entry for this node.",
       "latest": "The latest {{count}} of {{total}} entries.",
-      "open": "Open in the Logs view"
+      "open": "Open in the Logs view",
+      "search": "Search a log entry",
+      "count_one": "{{count}} entry",
+      "count_other": "{{count}} entries",
+      "matching_one": "{{count}} of {{total}} entry",
+      "matching_other": "{{count}} of {{total}} entries",
+      "noMatch": "No log entry matches the search.",
+      "searchLatest": "The search covers the latest {{count}} of {{total}} entries."
     },
     "networks": {
       "empty": "No IP address reported for this node.",
@@ -336,7 +565,13 @@
         "net_name": "Network",
         "net_gateway": "Gateway",
         "flag_deprecated": "State"
-      }
+      },
+      "search": "Search an address or interface",
+      "count_one": "{{count}} address",
+      "count_other": "{{count}} addresses",
+      "matching_one": "{{count}} of {{total}} address",
+      "matching_other": "{{count}} of {{total}} addresses",
+      "noMatch": "No address matches the search."
     },
     "packages": {
       "search": "Search a package or version",
@@ -350,18 +585,11 @@
       "noMatch": "No package matches the search."
     },
     "inventory": {
-      "categoriesLabel": "Inventory categories",
       "categories": {
         "hardware": "Hardware",
         "networks": "Networks",
         "storage": "Storage",
         "packages": "Packages"
-      },
-      "chip": {
-        "count_one": "{{count}} entry",
-        "count_other": "{{count}} entries",
-        "pending": "loading",
-        "error": "could not be loaded"
       }
     },
     "sysreport": {
@@ -445,6 +673,32 @@
         "explain": "What changed after the first report, up to and including the second.",
         "identical": "Nothing changed between these two reports.",
         "clear": "Clear the selection"
+      },
+      "purge": {
+        "open": "Purge from history…",
+        "title": "Purge this file from the sysreport history",
+        "effects": {
+          "every": "Every version of this file is removed from the history, for good. This cannot be undone.",
+          "ids": "The revisions from the first one holding it get new ids: links to them stop working. A revision that held nothing else disappears.",
+          "outside": "Copies outside the collector are not touched: its backups, the node itself.",
+          "again": "If the node still tracks this file, its next report records it again: remove it from the agent's sysreport first."
+        },
+        "scope": "Remove it from",
+        "thisNode": "The sysreport of this node",
+        "allNodes": "The sysreport of every node that reported it",
+        "confirm": "Type the path to confirm:",
+        "submit": "Purge",
+        "queuing": "Queuing…",
+        "queued": "Purge of {{path}} queued: the scheduler runs it within a minute.",
+        "running": "Purging {{path}} from the sysreport history…",
+        "done_one": "{{path}} purged from the sysreport history of {{count}} node. Revisions rewritten: {{rewritten}}, dropped: {{dropped}}; versions destroyed: {{removed}}.",
+        "done_other": "{{path}} purged from the sysreport history of {{count}} nodes. Revisions rewritten: {{rewritten}}, dropped: {{dropped}}; versions destroyed: {{removed}}.",
+        "kept_one": "Still stored because another file holds the same content: {{count}} version.",
+        "kept_other": "Still stored because other files hold the same content: {{count}} versions.",
+        "nothing": "{{path}} was found in no sysreport history: nothing purged.",
+        "failed": "The purge of {{path}} failed: {{error}}",
+        "statusError": "Could not read the progress of the purge: {{message}}",
+        "dismiss": "Dismiss the purge report"
       }
     },
     "compare": {
@@ -459,6 +713,12 @@
         "thresholds": "Thresholds",
         "chk_err": "State"
       },
+      "search": "Search the checks",
+      "count_one": "{{count}} check",
+      "count_other": "{{count}} checks",
+      "matching_one": "{{count}} of {{total}} checks",
+      "matching_other": "{{count}} of {{total}} checks",
+      "noMatch": "No check matches “{{query}}”.",
       "within": "within thresholds",
       "below": "below the low threshold",
       "above": "above the high threshold",
@@ -467,22 +727,63 @@
       "empty": "No check: the agent has not reported any for this node.",
       "outOfBoundsCount_one": "{{count}} check out of bounds",
       "outOfBoundsCount_other": "{{count}} checks out of bounds"
+    },
+    "storage": {
+      "search": "Search a disk or adapter",
+      "matching": "Matching: {{disks}} of {{totalDisks}} disks, {{hbas}} of {{totalHbas}} adapters"
+    },
+    "services": {
+      "search": "Search the services",
+      "count_one": "{{count}} instance",
+      "count_other": "{{count}} instances",
+      "matching_one": "{{count}} instance of {{total}}",
+      "matching_other": "{{count}} instances of {{total}}",
+      "noMatch": "No instance matches “{{query}}”.",
+      "empty": "No service: no agent reported an instance on this node.",
+      "downCount_one": "{{count}} instance down",
+      "downCount_other": "{{count}} instances down",
+      "warnCount_one": "{{count}} instance in warning",
+      "warnCount_other": "{{count}} instances in warning",
+      "otherCount_one": "{{count}} other instance",
+      "otherCount_other": "{{count}} other instances",
+      "serviceCount_one": "{{count}} service",
+      "serviceCount_other": "{{count}} services",
+      "containers_one": "{{count}} container",
+      "containers_other": "{{count}} containers",
+      "containersOf_one": "{{count}} of {{total}} containers",
+      "containersOf_other": "{{count}} of {{total}} containers"
     }
   },
   "auth": {
     "title": "Sign in",
-    "intro": "The collector uses HTTP Basic authentication for now. OIDC comes later.",
+    "intro": "Sign in with your collector email and password.",
     "user": "User",
     "password": "Password",
     "signIn": "Sign in",
     "signingIn": "Signing in…",
     "signOut": "Sign out",
     "rejected": "The collector refused these credentials.",
-    "unavailable": "The collector cannot check your credentials right now, please retry later: {{reason}}"
+    "unavailable": "The collector cannot check your credentials right now, please retry later: {{reason}}",
+    "oidcSignIn": "Sign in with single sign-on",
+    "oidcUnavailable": "The identity provider cannot be reached right now. The button comes back as soon as it answers.",
+    "passwordIntro": "Or, with a collector password:",
+    "noMode": "No sign-in mode is enabled on this collector. Contact its administrator.",
+    "checking": "Checking your session…",
+    "expired": "Your session has ended. Sign in again to go on; the page stays as it is.",
+    "signInAgain": "Sign in again",
+    "leave": "Leave",
+    "oidcErrors": {
+      "denied": "The sign-in was cancelled or refused by the identity provider.",
+      "expired": "The sign-in took too long. Please start again.",
+      "state": "The sign-in could not be verified. Please start again.",
+      "token": "The identity provider's answer could not be verified. Please start again, and contact the administrator if it persists.",
+      "not_allowed": "Your account at the identity provider is not allowed to use the collector. Ask an administrator to grant you access.",
+      "unknown_user": "Your identity is not linked to any collector account. Ask an administrator to create or link your account.",
+      "locked": "Your collector account is locked. Contact an administrator.",
+      "unavailable": "The collector cannot complete the sign-in right now. Please retry later."
+    }
   },
   "list": {
-    "filterset": "Filterset",
-    "noFilterset": "No filterset",
     "perPage": "Per page",
     "range": "{{from}}–{{to}}",
     "previous": "Previous",
@@ -500,11 +801,14 @@
         "xlsx": "Excel workbook (.xlsx)",
         "csv": "CSV file (.csv)"
       },
-      "hint": "Every row matching the filters, in the current sort, with every column: those on display first, then the hidden ones.",
+      "hint": "Every row matching the filters, in the current sort, with the columns on display, in their order; the hidden ones after them when included.",
       "done_one": "1 row exported.",
       "done_other": "{{count}} rows exported.",
       "truncated": "Export stopped at {{count}} rows: narrow the list with filters to export the rest.",
-      "error": "Could not export the list: {{message}}"
+      "error": "Could not export the list: {{message}}",
+      "dismiss": "Dismiss the export report",
+      "withHidden_one": "Include the hidden column (1)",
+      "withHidden_other": "Include the hidden columns ({{count}})"
     },
     "filterColumns": "Filter columns",
     "resetColumns": "Reset to default columns",
@@ -518,25 +822,63 @@
     "selectingEverything": "Selecting…",
     "selectedEverywhere": "{{count}} selected, every page",
     "selectedEverywhere_other": "{{count}} selected, every page",
+    "saveFilterset": {
+      "label": "Save as filterset…",
+      "name": "Filterset name",
+      "taken": "A filterset already has this name.",
+      "entries": "Entries",
+      "unstorable": {
+        "regex": "A regular expression cannot be stored in a filterset.",
+        "empty": "An empty value cannot be stored in a filterset.",
+        "column": "Filtersets cannot filter on this column.",
+        "length": "Value too long for a filterset (256 characters at most)."
+      },
+      "withSession": "Also apply the session filter ({{name}})",
+      "selects": {
+        "nodes": "Selects the nodes matching these filters, and the services with an instance on them.",
+        "services": "Selects the services matching these filters, and the nodes they run on.",
+        "related": "Selects the nodes and services with a row matching each filter. Each filter is checked on its own: two filters can be met by different rows."
+      },
+      "nothing": "None of these filters can be stored in a filterset.",
+      "create": "Create filterset",
+      "creating": "Creating…",
+      "created": "Filterset “{{name}}” created.",
+      "open": "Open"
+    },
     "filters": {
       "title": "Filters",
       "label": "Filter {{column}}",
       "active": "Filtered",
       "hidden": "hidden column",
       "unknown": "unknown column",
-      "all": "All",
-      "regex": "Regular expression",
       "invert": "Invert: rows that do not match",
-      "invertEnum": "All except the ticked values",
       "invertOne": "Invert the {{column}} filter",
       "not": "not",
-      "except": "All except {{values}}",
       "invalidRegex": "Invalid regular expression: {{reason}}",
       "numberHint": "e.g. >=8",
+      "dateHint": "e.g. <-15m: more than 15 minutes ago",
+      "lessThanAgo": "less than {{age}} ago",
+      "moreThanAgo": "more than {{age}} ago",
       "clearOne": "Clear the {{column}} filter",
       "clearAll_one": "Clear filter",
       "clearAll_other": "Clear filters ({{count}})",
-      "noMatch": "No row matches the filters."
+      "noMatch": "No row matches the filters.",
+      "open": "Filter {{column}}",
+      "openActive": "Filter {{column}}: {{filter}}",
+      "operator": "Operator",
+      "operators": {
+        "contains": "contains",
+        "eq": "equals",
+        "ne": "differs from",
+        "regex": "matches (regex)",
+        "gt": ">",
+        "gte": "≥",
+        "lt": "<",
+        "lte": "≤"
+      },
+      "textHint": "Text, or empty for none",
+      "exclude": "Exclude",
+      "clear": "Clear"
     },
     "first": "First",
     "last": "Last",
@@ -546,11 +888,9 @@
     "rangeOf": "{{from}}–{{to}} of {{total}}",
     "pagination": "Pagination",
     "distribution": {
-      "open": "Value distribution of {{column}}",
       "title": "Values of {{column}}",
       "summary_one": "{{values}} value · {{rows}} rows",
       "summary_other": "{{values}} values · {{rows}} rows",
-      "narrow": "Narrow the values…",
       "empty": "(empty)",
       "none": "No row under the other filters.",
       "other_one": "And 1 other value, on {{rows}} rows.",
@@ -559,8 +899,28 @@
       "alsoPicked": "Also picked: {{values}}.",
       "excluding": "The ticked values are excluded.",
       "hint": "Click: only · Ctrl+click: add",
-      "exclude": "Exclude",
-      "clear": "Clear"
+      "values": "Values",
+      "show": "Show the values",
+      "nearlyUnique": "Nearly every row holds its own value."
+    },
+    "view": {
+      "label": "View",
+      "modified": "this tab",
+      "customized": "This tab shows its own columns, sort, filters or page size: other tabs and new ones keep your default view.",
+      "asDefault": "This tab shows your default view.",
+      "save": "Save as my default view",
+      "saving": "Saving…",
+      "restore": "Restore my default view",
+      "hint": "Changes to the columns, sort, filters and page size apply to this tab only. Your default view is what new tabs open with.",
+      "saved": "Saved as your default view: new tabs open with it.",
+      "saveFailed": "The default view could not be saved: {{message}}"
+    },
+    "fit": {
+      "hidden_one": "{{count}} column hidden, too narrow",
+      "hidden_other": "{{count}} columns hidden, too narrow",
+      "hiddenTitle": "Hidden for lack of width: {{columns}}. Click to show every column anyway: narrower, wrapped, or scrolling sideways.",
+      "hiddenMark": "(too narrow)",
+      "enable": "Fit the columns to the width"
     }
   },
   "detail": {
@@ -581,7 +941,13 @@
     "no": "No",
     "none": "None",
     "searchValue": "Type to search…",
-    "noMatch": "No matching value."
+    "noMatch": "No matching value.",
+    "outsideList": "not in the list",
+    "outsideListHint": "This value is not among those allowed for this attribute. It stays as it is; changing it means choosing one of the list.",
+    "outsidePattern": "does not match the pattern",
+    "outsidePatternHint": "This value does not match the pattern {{pattern}} set for this attribute. It stays as it is; changing it means typing a value that matches.",
+    "patternHint": "The value must match the pattern {{pattern}}, as a whole.",
+    "patternMismatch": "{{field}}: the value must match the pattern {{pattern}}, as a whole."
   },
   "services": {
     "title": "Services",
@@ -633,14 +999,30 @@
         "placement": "Placement",
         "disasterRecovery": "Disaster recovery",
         "collector": "Collector"
-      }
+      },
+      "editHint": "The SLA, the notifications and their snooze, the start wave and the disaster recovery nodes are set here by a responsible of the service; the rest comes from the agents."
     },
     "related": {
       "label": "Service data",
       "storage": "Storage",
       "nodediff": "Nodes Differences",
       "resources": "Resource status",
-      "logs": "Logs"
+      "logs": "Logs",
+      "actions": "Actions",
+      "descriptions": {
+        "resources": "State of each resource on each node",
+        "storage": "Disks of the service",
+        "nodediff": "How its nodes differ",
+        "actions": "What the agents ran on it",
+        "compliance": "Modules checked and fixed",
+        "logs": "Collector log of the service",
+        "instances": "Instances on each node",
+        "alerts": "Open alerts",
+        "resinfo": "Keys the resources declare"
+      },
+      "instances": "Status",
+      "alerts": "Alerts",
+      "resinfo": "Resinfo"
     },
     "actions": {
       "open": "Actions",
@@ -657,15 +1039,21 @@
         "switch": "Switch",
         "giveback": "Give back",
         "freeze": "Freeze",
-        "thaw": "Thaw",
-        "abort": "Abort",
-        "clear": "Clear",
+        "thaw": "Unfreeze",
+        "abort": "Abort the action",
+        "clear": "Clear the failure",
         "push config": "Update service information",
         "push resinfo": "Update app information"
       },
+      "menu": {
+        "push config": "Service information",
+        "push resinfo": "App information"
+      },
       "groups": {
-        "recovery": "Recovery",
-        "inventory": "Inventory"
+        "refresh": "Refresh data",
+        "orchestration": "Orchestration",
+        "placement": "Placement",
+        "startStop": "Start and stop"
       },
       "data": {
         "delete": {
@@ -676,8 +1064,148 @@
           "confirm_other": "Delete {{count}} services",
           "running": "Deleting…",
           "done_one": "1 service deleted.",
-          "done_other": "{{count}} services deleted."
+          "done_other": "{{count}} services deleted.",
+          "description": "Remove the service and all its records from the collector: instances, resources, alerts, tags, history."
+        },
+        "notificationsOn": {
+          "label": "Turn notifications on",
+          "question_one": "Turn on the notifications of the alerts of this service?",
+          "question_other": "Turn on the notifications of the alerts of these {{count}} services?",
+          "confirm_one": "Turn on",
+          "confirm_other": "Turn on for {{count}} services",
+          "running": "Turning on…",
+          "done_one": "Notifications turned on for 1 service.",
+          "done_other": "Notifications turned on for {{count}} services.",
+          "description": "The collector sends the notifications of the service again."
+        },
+        "notificationsOff": {
+          "label": "Turn notifications off",
+          "question_one": "Turn off the notifications of the alerts of this service? Its alerts are still raised, but no longer sent.",
+          "question_other": "Turn off the notifications of the alerts of these {{count}} services? Their alerts are still raised, but no longer sent.",
+          "confirm_one": "Turn off",
+          "confirm_other": "Turn off for {{count}} services",
+          "running": "Turning off…",
+          "done_one": "Notifications turned off for 1 service.",
+          "done_other": "Notifications turned off for {{count}} services.",
+          "description": "The collector stops sending the notifications of the service."
+        },
+        "tagAttach": {
+          "label": "Attach a tag",
+          "question_one": "Attach a tag to this service:",
+          "question_other": "Attach a tag to these {{count}} services:",
+          "confirm_one": "Attach",
+          "confirm_other": "Attach to {{count}} services",
+          "running": "Attaching…",
+          "done_one": "Tag {{choice}} attached to 1 service.",
+          "done_other": "Tag {{choice}} attached to {{count}} services.",
+          "choice": "Tag",
+          "description": "Attach a tag to the service."
+        },
+        "modulesetAttach": {
+          "label": "Attach a moduleset",
+          "question_one": "Attach a moduleset to this service:",
+          "question_other": "Attach a moduleset to these {{count}} services:",
+          "confirm_one": "Attach",
+          "confirm_other": "Attach to {{count}} services",
+          "running": "Attaching…",
+          "done_one": "Moduleset {{choice}} attached to 1 service.",
+          "done_other": "Moduleset {{choice}} attached to {{count}} services.",
+          "choice": "Moduleset",
+          "description": "Attach a compliance moduleset to the service."
+        },
+        "modulesetDetach": {
+          "label": "Detach a moduleset",
+          "question_one": "Detach a moduleset from this service:",
+          "question_other": "Detach a moduleset from these {{count}} services:",
+          "confirm_one": "Detach",
+          "confirm_other": "Detach from {{count}} services",
+          "running": "Detaching…",
+          "done_one": "Moduleset {{choice}} detached from 1 service.",
+          "done_other": "Moduleset {{choice}} detached from {{count}} services.",
+          "choice": "Moduleset",
+          "description": "Detach a compliance moduleset from the service."
+        },
+        "rulesetAttach": {
+          "label": "Attach a ruleset",
+          "question_one": "Attach a ruleset to this service:",
+          "question_other": "Attach a ruleset to these {{count}} services:",
+          "confirm_one": "Attach",
+          "confirm_other": "Attach to {{count}} services",
+          "running": "Attaching…",
+          "done_one": "Ruleset {{choice}} attached to 1 service.",
+          "done_other": "Ruleset {{choice}} attached to {{count}} services.",
+          "choice": "Ruleset (explicit and public)",
+          "description": "Attach a compliance ruleset to the service."
+        },
+        "rulesetDetach": {
+          "label": "Detach a ruleset",
+          "question_one": "Detach a ruleset from this service:",
+          "question_other": "Detach a ruleset from these {{count}} services:",
+          "confirm_one": "Detach",
+          "confirm_other": "Detach from {{count}} services",
+          "running": "Detaching…",
+          "done_one": "Ruleset {{choice}} detached from 1 service.",
+          "done_other": "Ruleset {{choice}} detached from {{count}} services.",
+          "choice": "Ruleset (explicit and public)",
+          "description": "Detach a compliance ruleset from the service."
         }
+      },
+      "fields": {
+        "begin": "Begin",
+        "node": "Node",
+        "action": "Action",
+        "status": "Status",
+        "time": "Duration",
+        "ack": "Acknowledged",
+        "service": "Service"
+      },
+      "acked": "by {{by}}",
+      "logTitle": "Log of {{action}}",
+      "latest": "The latest {{count}} of the {{total}} actions of the period.",
+      "errCount_one": "1 in error",
+      "errCount_other": "{{count}} in error",
+      "warnCount_one": "1 in warning",
+      "warnCount_other": "{{count}} in warning",
+      "otherCount_one": "1 other",
+      "otherCount_other": "{{count}} others",
+      "period": {
+        "label": "Period",
+        "days_one": "24 hours",
+        "days_other": "{{count}} days"
+      },
+      "timeline": {
+        "title_one": "Actions of the last 24 hours, by node",
+        "title_other": "Actions of the last {{count}} days, by node",
+        "ongoing": "ongoing",
+        "end": "End",
+        "showTable": "Show as a table",
+        "selectHint": "Use the arrow keys to step through the actions, Enter to open the details of one.",
+        "capped": "Only the latest {{count}} actions are drawn: choose a shorter period to see them all.",
+        "titleByService_one": "Actions of the last 24 hours, by service",
+        "titleByService_other": "Actions of the last {{count}} days, by service"
+      },
+      "empty_one": "No action in the last 24 hours.",
+      "empty_other": "No action in the last {{count}} days.",
+      "periodNote_one": "Actions of the last 24 hours.",
+      "periodNote_other": "Actions of the last {{count}} days.",
+      "unacked_one": "1 failed action not acknowledged",
+      "unacked_other": "{{count}} failed actions not acknowledged",
+      "view": {
+        "label": "Show as",
+        "table": "Table",
+        "timeline": "Timeline"
+      },
+      "descriptions": {
+        "push config": "The agent sends the configuration of the service to the collector.",
+        "push resinfo": "The agent sends the information of the resources of the service: addresses, paths, versions.",
+        "freeze": "The daemon stops orchestrating the service, on all its nodes.",
+        "thaw": "The daemon orchestrates the service again.",
+        "clear": "Clear the failed state of the monitor of the service.",
+        "abort": "Abort the action running on the service.",
+        "switch": "Stop the service on its node and start it on another.",
+        "giveback": "Bring the service back to its preferred node.",
+        "start": "Start the service, where its placement says.",
+        "stop": "Stop the service on all its nodes."
       }
     },
     "pkgdiff": {
@@ -731,7 +1259,12 @@
         "none": "nothing to compare"
       }
     },
+    "meetsSla": "meets the {{sla}} SLA",
     "belowSla": "below the {{sla}} SLA",
+    "trend": {
+      "up": "up {{points}} points over the last 7 days",
+      "down": "down {{points}} points over the last 7 days"
+    },
     "resources": {
       "flags": "Flags",
       "empty": "No resource reported for this service.",
@@ -748,11 +1281,34 @@
       "otherCount_other": "{{count}} other resources"
     },
     "logs": {
-      "empty": "No log entry for this service."
+      "empty": "No log entry for this service.",
+      "search": "Search a log entry",
+      "count_one": "{{count}} entry",
+      "count_other": "{{count}} entries",
+      "matching_one": "{{count}} of {{total}} entry",
+      "matching_other": "{{count}} of {{total}} entries",
+      "noMatch": "No log entry matches the search."
     },
     "compare": {
       "noun_one": "1 service",
       "noun_other": "{{count}} services"
+    },
+    "alerts": {
+      "empty": "No alert on this service."
+    },
+    "instances": {
+      "empty": "No instance: no agent reported this service."
+    },
+    "resinfo": {
+      "search": "Search a key or a value",
+      "count_one": "{{count}} key",
+      "count_other": "{{count}} keys",
+      "matching_one": "{{count}} of {{total}} key",
+      "matching_other": "{{count}} of {{total}} keys",
+      "empty": "No key: the resources of this service declare none.",
+      "noMatch": "No key matches the search.",
+      "key": "Key",
+      "value": "Value"
     }
   },
   "alerts": {
@@ -808,6 +1364,24 @@
       "end": "Ended",
       "duration": "Lasted",
       "showTable": "Show the occurrences"
+    },
+    "actions": {
+      "open": "Actions",
+      "failure": "{{name}}: {{message}}",
+      "data": {
+        "delete": {
+          "label": "Delete from the collector",
+          "question_one": "Delete this alert from the collector? The check that raised it raises it again at its next run if the cause remains. This cannot be undone.",
+          "question_other": "Delete these {{count}} alerts from the collector? The checks that raised them raise them again at their next run if the cause remains. This cannot be undone.",
+          "confirm_one": "Delete the alert",
+          "confirm_other": "Delete {{count}} alerts",
+          "running": "Deleting…",
+          "done_one": "1 alert deleted.",
+          "done_other": "{{count}} alerts deleted.",
+          "description": "Remove the alerts from the dashboard; they come back if their cause persists."
+        }
+      },
+      "notFound": "already deleted"
     }
   },
   "apps": {
@@ -825,7 +1399,8 @@
       "groups": {
         "identity": "Properties"
       },
-      "teamsHint": "Changing the teams of an app requires the AppManager privilege and the responsibility of the app; unless you are a Manager, you can only add teams you are a member of. The responsible teams manage the app, the teams it is published to see its nodes and services."
+      "teamsHint": "Changing the teams of an app requires the AppManager privilege and the responsibility of the app; unless you are a Manager, you can only add teams you are a member of. The responsible teams manage the app, the teams it is published to see its nodes and services.",
+      "editHint": "The code, description, domain and ops team are changed by an AppManager responsible for the app. Renaming the code renames it on the nodes and services of the app. The ops team is an organizational group."
     },
     "create": {
       "open": "New app",
@@ -835,6 +1410,22 @@
     },
     "delete": {
       "question": "Delete the {{app}} code? Its responsibles and publications go with it. This cannot be undone."
+    },
+    "actions": {
+      "open": "Actions",
+      "failure": "{{name}}: {{message}}",
+      "data": {
+        "delete": {
+          "label": "Delete",
+          "question_one": "Delete this application code? Its responsibles and publications go with it. This cannot be undone.",
+          "question_other": "Delete these {{count}} application codes? Their responsibles and publications go with them. This cannot be undone.",
+          "confirm_one": "Delete the application code",
+          "confirm_other": "Delete {{count}} application codes",
+          "running": "Deleting…",
+          "done_one": "1 application code deleted.",
+          "done_other": "{{count}} application codes deleted."
+        }
+      }
     }
   },
   "networks": {
@@ -932,6 +1523,22 @@
         "outside": "Outside the network.",
         "before": "The last address comes before the first."
       }
+    },
+    "actions": {
+      "open": "Actions",
+      "failure": "{{name}}: {{message}}",
+      "data": {
+        "delete": {
+          "label": "Delete",
+          "question_one": "Delete this IP address? The agent of a node reports it again at its next asset push if the node still has it. This cannot be undone.",
+          "question_other": "Delete these {{count}} IP addresses? The agent of a node reports them again at its next asset push if the node still has them. This cannot be undone.",
+          "confirm_one": "Delete the IP address",
+          "confirm_other": "Delete {{count}} IP addresses",
+          "running": "Deleting…",
+          "done_one": "1 IP address deleted.",
+          "done_other": "{{count}} IP addresses deleted."
+        }
+      }
     }
   },
   "disks": {
@@ -983,7 +1590,8 @@
       "title": "Group",
       "groups": {
         "identity": "Properties"
-      }
+      },
+      "editHint": "The name, description and privilege flag are changed here; only a Manager makes a group a privilege group or changes one. The Everybody group cannot be changed."
     },
     "create": {
       "open": "New group",
@@ -995,6 +1603,64 @@
     },
     "delete": {
       "question": "Delete the group {{role}}? Its memberships, responsibilities and publications go with it. This cannot be undone."
+    },
+    "members": {
+      "title": "Members",
+      "filter": "Filter the members",
+      "loading": "Reading the members…",
+      "none": "No user is member of this group.",
+      "noMatch": "No member matches.",
+      "hint": "Memberships are changed from the panel of each user.",
+      "add": "Add a member",
+      "added": "{{user}} added to the group.",
+      "removed": "{{user}} removed from the group.",
+      "remove": "Remove {{user}} from the group",
+      "editHint": "Each change is written at once. A GroupManager who is not a Manager is offered the users sharing one of their organizational groups."
+    },
+    "actions": {
+      "open": "Actions",
+      "failure": "{{name}}: {{message}}",
+      "data": {
+        "delete": {
+          "label": "Delete",
+          "question_one": "Delete this group? Its memberships go with it, as do the responsibilities and publications it gives on applications, forms, rulesets and modulesets. The Everybody group cannot be deleted. This cannot be undone.",
+          "question_other": "Delete these {{count}} groups? Their memberships go with them, as do the responsibilities and publications they give on applications, forms, rulesets and modulesets. The Everybody group cannot be deleted. This cannot be undone.",
+          "confirm_one": "Delete the group",
+          "confirm_other": "Delete {{count}} groups",
+          "running": "Deleting…",
+          "done_one": "1 group deleted.",
+          "done_other": "{{count}} groups deleted."
+        }
+      }
+    },
+    "menu": {
+      "tab": "Menu",
+      "title": "Menu entries",
+      "intro": "The entries the members of {{role}} see in their menu. An entry is hidden to a user only when every team of the user hides it; the Everybody group and the privilege groups do not count, the personal group of a user does.",
+      "readOnly": "Only a GroupManager changes them.",
+      "filter": "Filter the entries",
+      "showEntry": "Show {{entry}}",
+      "showSection": "Show the {{section}} section",
+      "sectionShown_one": "{{shown}} of {{count}}",
+      "sectionShown_other": "{{shown}} of {{count}}",
+      "hiddenFor_one": "hidden · {{count}} of {{total}}",
+      "hiddenFor_other": "hidden · {{count}} of {{total}}",
+      "noMembers": "The group has no member: the entry is hidden to nobody.",
+      "hiddenForNone": "Hidden to none of the members: each has another team, or their personal group, that shows it.",
+      "hiddenTo": "Hidden to:",
+      "shownTo": "Still shown to:",
+      "keptBy": "by {{groups}}",
+      "personalGroup": "their personal group",
+      "hidePersonal_one": "Also hide it on 1 personal group",
+      "hidePersonal_other": "Also hide it on {{count}} personal groups",
+      "hidePersonalHint": "For the members whose personal group alone keeps it shown; those kept by another team still see it.",
+      "visibleCount_one": "1 entry shown",
+      "visibleCount_other": "{{count}} entries shown",
+      "hiddenCount_one": "1 entry hidden",
+      "hiddenCount_other": "{{count}} entries hidden"
+    },
+    "related": {
+      "label": "Group details"
     }
   },
   "tags": {
@@ -1010,7 +1676,9 @@
       "title": "Tag",
       "groups": {
         "identity": "Properties"
-      }
+      },
+      "editHint": "The exclusion pattern is a regular expression of the tag names a node or service carrying this tag cannot carry as well; empty, it excludes nothing. Renaming a form-based tag (<form>::<name>) changes the form describing its data.",
+      "deleteQuestion": "Delete the tag {{name}}? Its attachments to nodes and services go with it. This cannot be undone."
     },
     "create": {
       "open": "New tag",
@@ -1019,13 +1687,74 @@
       "required": "required",
       "excludeHint": "Regular expression of the tag names that cannot be attached along with this one. Optional.",
       "excludeInvalid": "This is not a valid regular expression.",
-      "dataHint": "Free data attached to the tag, in JSON. Optional.",
-      "dataInvalid": "This is not valid JSON.",
+      "dataHint": "Free data attached to the tag: JSON, or plain text. Optional.",
       "save": "Create the tag",
-      "saving": "Creating…"
+      "saving": "Creating…",
+      "formHelp": {
+        "summary": "How to describe a tag's data with a form",
+        "naming": "Name the tag after a form, then two colons, then a name of your own:",
+        "example": "For instance, with the form keyval:",
+        "tagData": "The tag's own data is shared by every node and service carrying the tag. It changes in the tag's panel, by a TagManager.",
+        "attachData": "Each node or service carrying the tag has data of its own as well. It is filled in when the tag is attached, from the node or service panel, by whoever may change its tags.",
+        "after": "Pick a form to start the name with it:",
+        "pick": "Start the name with a form",
+        "noForm": "No matching form.",
+        "plainHint": "To describe the tag's data with a form, name it <form>::<name>.",
+        "checking": "Looking for the form {{form}}…",
+        "formBased": "✓ Form-based tag: its data is described by the form {{form}}.",
+        "missing": "No form named {{form}}: the tag's data would be free JSON. Check the name before the \"::\".",
+        "dataHint": "Shared by every node and service carrying the tag. Optional: write it here in JSON, or after creating the tag, in its panel, through the form {{form}}.",
+        "pattern": "<form>::<name>",
+        "namingThen": "The tag's data is then laid out and filled in with that form, rather than written in JSON."
+      },
+      "dataAsText": "Not JSON: it will be stored as plain text."
+    },
+    "data": {
+      "title": "Data",
+      "formBased": "Described by the form {{form}}.",
+      "none": "No data.",
+      "edit": "Edit",
+      "save": "Save",
+      "saving": "Saving…",
+      "raw": "Data, as JSON or text",
+      "noForm": "No form named {{form}} can be read: the data is edited as text."
+    },
+    "attachments": {
+      "nodes": "Nodes",
+      "services": "Services",
+      "nodesNone": "No node carries this tag.",
+      "servicesNone": "No service carries this tag."
+    },
+    "actions": {
+      "open": "Actions",
+      "failure": "{{name}}: {{message}}",
+      "data": {
+        "delete": {
+          "label": "Delete",
+          "question_one": "Delete this tag? Its attachments to nodes and services go with it. This cannot be undone.",
+          "question_other": "Delete these {{count}} tags? Their attachments to nodes and services go with them. This cannot be undone.",
+          "confirm_one": "Delete the tag",
+          "confirm_other": "Delete {{count}} tags",
+          "running": "Deleting…",
+          "done_one": "1 tag deleted.",
+          "done_other": "{{count}} tags deleted."
+        }
+      }
     }
   },
   "users": {
+    "password": {
+      "open": "Set the password",
+      "hint_one": "The new password of {{email}}, at least {{count}} character. Their current one is not asked for; they sign in with this one from now on.",
+      "hint_other": "The new password of {{email}}, at least {{count}} characters. Their current one is not asked for; they sign in with this one from now on.",
+      "submit": "Set the password",
+      "done": "Password of {{email}} set."
+    },
+    "delete": {
+      "label": "Delete the user",
+      "question": "Delete the user {{email}}?",
+      "consequence": "Their team memberships, private team, identity provider links, session filter and preferences go with the account; the audit log and the history of their actions stay. They can no longer sign in. This cannot be undone."
+    },
     "title": "Users",
     "fields": {
       "id": "Record id",
@@ -1079,6 +1808,7 @@
       "password": "Password",
       "confirm": "Confirm password",
       "noPassword": "Without a password the account exists but cannot sign in.",
+      "passwordsDisabled": "Password sign-in is disabled on this collector: the user signs in through the identity provider.",
       "passwordHint_one": "At least {{count}} character.",
       "passwordHint_other": "At least {{count}} characters.",
       "tooShort_one": "At least {{count}} character.",
@@ -1089,13 +1819,19 @@
     }
   },
   "profile": {
+    "groups": {
+      "title": "Groups and privileges",
+      "hint": "Your organizational groups decide which nodes, services and applications you see; your privilege groups decide what you may change. A GroupManager changes them from the Users view; when you sign in through your identity provider, some may follow its claims.",
+      "manager": "Manager grants every privilege: the other privilege groups add nothing to it."
+    },
     "title": "My profile",
     "palette": {
       "title": "Theme",
-      "hint": "High contrast uses black or white text, visible borders and saturated colours, in light as in dark mode.",
+      "hint": "High contrast uses black or white text, visible borders and saturated colours. Colour-blind friendly shows the states in blue, gold and crimson rather than green and red. Both apply in light as in dark mode.",
       "options": {
         "standard": "Standard",
-        "contrast": "High contrast"
+        "contrast": "High contrast",
+        "colorblind": "Colour-blind friendly"
       }
     },
     "theme": {
@@ -1108,16 +1844,17 @@
       }
     },
     "viewPrefs": {
-      "title": "Saved view settings",
-      "hint": "The columns, sort order, filters and page size you chose in each list follow your account.",
-      "reset": "Forget saved columns, sorting, filters and page sizes",
-      "question": "Forget the columns, sort order, filters and page size saved for every view?",
+      "title": "Default views",
+      "hint": "The lists open in a new tab with the columns, sort order, filters and page size you saved as your default view (View menu of each list). Changes made in a tab stay in that tab.",
+      "reset": "Forget my default views",
+      "question": "Forget the default view saved for every list? New tabs will open the lists with their built-in settings.",
       "confirm": "Forget",
       "pending": "Forgetting…",
-      "done": "Saved columns, sorting, filters and page sizes forgotten. Every list is back to its defaults.",
-      "none": "No view has saved columns, sort order, filters or page size."
+      "done": "Default views forgotten. New tabs open the lists with their built-in settings.",
+      "none": "No list has a default view saved."
     },
     "password": {
+      "managedByProvider": "Your password is managed by your identity provider: change it there.",
       "title": "Password",
       "hint_one": "At least {{count}} character. Signs you in to this interface and to the historical collector.",
       "hint_other": "At least {{count}} characters. Signs you in to this interface and to the historical collector.",
@@ -1149,7 +1886,44 @@
     },
     "identity": {
       "hint": "Your name and email are yours to change; the other properties are managed by an administrator.",
-      "editHint": "Hover a field to change it. The email is also your sign-in name: you sign in with the new one from now on."
+      "editHint": "Hover a field to change it. The email is also your sign-in name: you sign in with the new one from now on.",
+      "managedHint": "Your name and email come from your identity provider: change them there. The collector takes them again at each sign-in."
+    },
+    "panelSide": {
+      "title": "Detail panels",
+      "options": {
+        "right": "On the right",
+        "left": "On the left"
+      },
+      "hint": "The edge of the window the detail panels open against. The button in the header of a panel switches it too."
+    },
+    "language": {
+      "title": "Language",
+      "system": "System ({{language}})",
+      "options": {
+        "en": "English",
+        "fr": "Français"
+      },
+      "hint": "System follows the language of the browser. A chosen language follows the account, on every browser."
+    },
+    "dateFormat": {
+      "title": "Dates and times",
+      "options": {
+        "system": "Browser settings",
+        "en-US": "United States",
+        "en-GB": "United Kingdom",
+        "fr-FR": "France",
+        "iso": "ISO 8601"
+      },
+      "hint": "How dates and times read everywhere in the collector, whatever the language of the interface. By default, the regional settings of your browser."
+    },
+    "hourCycle": {
+      "title": "Clock",
+      "options": {
+        "auto": "As the format",
+        "h23": "24-hour",
+        "h12": "12-hour"
+      }
     }
   },
   "instances": {
@@ -1181,7 +1955,15 @@
       "mon_vcpus": "vCPUs",
       "mon_vmem": "VM memory",
       "mon_updated": "Updated",
-      "mon_changed": "Changed"
+      "mon_changed": "Changed",
+      "err": "Action errors",
+      "services.svc_ha": "High availability",
+      "services.svc_availstatus": "Service availability",
+      "services.svc_status": "Service status",
+      "services.svc_app": "App",
+      "services.svc_env": "Service environment",
+      "services.svc_topology": "Topology",
+      "nodes.node_env": "Node environment"
     },
     "detail": {
       "title": "Service instance",
@@ -1213,23 +1995,33 @@
         "syncnodes": "Sync peer remotes",
         "syncdrp": "Sync disaster recovery remotes",
         "freeze": "Freeze",
-        "thaw": "Thaw",
+        "thaw": "Unfreeze",
         "enable": "Enable",
         "disable": "Disable",
-        "abort": "Abort",
-        "clear": "Clear",
+        "abort": "Abort the action",
+        "clear": "Clear the failure",
         "compliance_check": "Compliance check",
         "compliance_fix": "Compliance fix",
         "push config": "Update service information",
         "push resinfo": "Update app information"
       },
+      "menu": {
+        "push config": "Service information",
+        "push resinfo": "App information",
+        "compliance_check": "Check",
+        "compliance_fix": "Fix",
+        "syncall": "All remotes",
+        "syncnodes": "Peer remotes",
+        "syncdrp": "Disaster recovery remotes"
+      },
       "groups": {
-        "recovery": "Recovery",
-        "inventory": "Inventory",
-        "placement": "Placement",
+        "refresh": "Refresh data",
+        "compliance": "Compliance",
+        "orchestration": "Orchestration",
         "sync": "Synchronization",
         "maintenance": "Maintenance",
-        "compliance": "Compliance"
+        "placement": "Placement",
+        "startStop": "Start and stop"
       },
       "data": {
         "delete": {
@@ -1240,13 +2032,44 @@
           "confirm_other": "Delete {{count}} instances",
           "running": "Deleting…",
           "done_one": "1 instance deleted.",
-          "done_other": "{{count}} instances deleted."
+          "done_other": "{{count}} instances deleted.",
+          "description": "Remove the instance from the collector, with its resources and its history."
         }
+      },
+      "descriptions": {
+        "push config": "The agent sends the configuration of the service to the collector.",
+        "push resinfo": "The agent sends the information of the resources of the instance: addresses, paths, versions.",
+        "compliance_check": "Check the compliance modules attached to the service, changing nothing.",
+        "compliance_fix": "Fix what the compliance modules attached to the service find wrong.",
+        "freeze": "The daemon stops orchestrating the instance on this node.",
+        "thaw": "The daemon orchestrates the instance on this node again.",
+        "clear": "Clear the failed state of the monitor of the instance.",
+        "abort": "Abort the action running on the instance.",
+        "syncall": "Copy the data of the instance to all its replicas.",
+        "syncnodes": "Copy the data to the replicas on the other nodes of the cluster.",
+        "syncdrp": "Copy the data to the replicas on the disaster recovery site.",
+        "enable": "Enable the instance: its resources are started and monitored again.",
+        "disable": "Disable the instance: its resources are no longer started nor monitored.",
+        "switch": "Stop the service on this node and start it on another.",
+        "takeover": "Start the service on this node, stopping it where it runs.",
+        "giveback": "Bring the service back to its preferred node.",
+        "start": "Start the instance on this node.",
+        "restart": "Stop then start the instance on this node.",
+        "stop": "Stop the instance on this node."
       }
     },
     "compare": {
       "noun_one": "1 instance",
       "noun_other": "{{count}} instances"
+    },
+    "actionErrors_one": "{{count}} unacknowledged action error in the last day",
+    "actionErrors_other": "{{count}} unacknowledged action errors in the last day",
+    "related": {
+      "descriptions": {
+        "resources": "State of each resource on this node",
+        "actions": "What the agent ran for it on this node",
+        "compliance": "Modules checked and fixed on this node"
+      }
     }
   },
   "obsolescence": {
@@ -1281,6 +2104,22 @@
         "deadlines": "Deadlines"
       },
       "editHint": "Only the deadlines can be changed; clearing one removes it. A change applies to the matching nodes and updates their obsolescence alerts on the dashboard."
+    },
+    "actions": {
+      "open": "Actions",
+      "failure": "{{name}}: {{message}}",
+      "data": {
+        "delete": {
+          "label": "Delete",
+          "question_one": "Delete this obsolescence setting? The next refresh creates it again, without dates, for the hardware models and OS versions the nodes still report. This cannot be undone.",
+          "question_other": "Delete these {{count}} obsolescence settings? The next refresh creates them again, without dates, for the hardware models and OS versions the nodes still report. This cannot be undone.",
+          "confirm_one": "Delete the obsolescence setting",
+          "confirm_other": "Delete {{count}} obsolescence settings",
+          "running": "Deleting…",
+          "done_one": "1 obsolescence setting deleted.",
+          "done_other": "{{count}} obsolescence settings deleted."
+        }
+      }
     }
   },
   "logs": {
@@ -1457,13 +2296,31 @@
       "saving": "Saving…"
     },
     "delete": {
-      "question": "Delete the filter {{label}}? It is also removed from the filtersets using it. This cannot be undone."
+      "question": "Delete the filter {{label}}? This cannot be undone."
     },
     "detail": {
       "title": "Filter",
       "groups": {
         "definition": "Definition",
         "record": "Record"
+      }
+    },
+    "actions": {
+      "open": "Actions",
+      "failure": "{{name}}: {{message}}",
+      "data": {
+        "delete": {
+          "label": "Delete",
+          "question_one": "Delete this filter? It is removed from the filtersets using it, which then select other objects. This cannot be undone.",
+          "question_other": "Delete these {{count}} filters? They are removed from the filtersets using them, which then select other objects. This cannot be undone.",
+          "confirm_one": "Delete the filter",
+          "confirm_other": "Delete {{count}} filters",
+          "running": "Deleting…",
+          "done_one": "1 filter deleted.",
+          "done_other": "{{count}} filters deleted.",
+          "used_one": "{{name}}: used by {{count}} filterset",
+          "used_other": "{{name}}: used by {{count}} filtersets"
+        }
       }
     }
   },
@@ -1508,7 +2365,21 @@
       "kindFilter": "Filter",
       "kindFilterset": "Filterset",
       "choose": "Choose…",
-      "add": "Add"
+      "add": "Add",
+      "kindNewFilter": "New filter…"
+    },
+    "related": {
+      "label": "Filterset details",
+      "nodes": "Nodes",
+      "services": "Services"
+    },
+    "objects": {
+      "findNode": "Find a node…",
+      "findService": "Find a service…",
+      "firstOnly": "The first {{count}} by name. Type a name to narrow the list.",
+      "noNode": "This filterset selects no node.",
+      "noService": "This filterset selects no service.",
+      "noMatch": "No name matches."
     },
     "matches": {
       "title": "Selection",
@@ -1525,15 +2396,47 @@
       "thresholds": "Check thresholds"
     },
     "delete": {
-      "question": "Delete the filterset {{name}}? Its composition goes with it. This cannot be undone.",
-      "questionUsed": "Delete the filterset {{name}}? It is used in {{count}} place(s), which lose it. Its composition goes with it. This cannot be undone."
+      "question": "Delete the filterset {{name}}? Its composition goes with it. This cannot be undone."
+    },
+    "newFilter": {
+      "title": "New filter",
+      "existing": "This filter exists already: it will be reused.",
+      "create": "Create and add",
+      "reuse": "Add the existing filter",
+      "noId": "The collector did not return the id of the new filter."
+    },
+    "actions": {
+      "open": "Actions",
+      "failure": "{{name}}: {{message}}",
+      "data": {
+        "delete": {
+          "label": "Delete",
+          "question_one": "Delete this filterset? Its uses go with it: the filtersets nesting it, the rulesets it restricts, the session filters, check thresholds, comparisons and sysreport grants using it. This cannot be undone.",
+          "question_other": "Delete these {{count}} filtersets? Their uses go with them: the filtersets nesting them, the rulesets they restrict, the session filters, check thresholds, comparisons and sysreport grants using them. This cannot be undone.",
+          "confirm_one": "Delete the filterset",
+          "confirm_other": "Delete {{count}} filtersets",
+          "running": "Deleting…",
+          "done_one": "1 filterset deleted.",
+          "done_other": "{{count}} filtersets deleted.",
+          "used_one": "{{name}}: used in {{count}} place",
+          "used_other": "{{name}}: used in {{count}} places"
+        }
+      }
     }
   },
   "related": {
     "properties": "Properties",
     "count_one": "{{count}} item",
     "count_other": "{{count}} items",
-    "notApplicable": "n/a"
+    "notApplicable": "n/a",
+    "groups": {
+      "workload": "Workload",
+      "health": "Health",
+      "configuration": "Configuration",
+      "overview": "Overview"
+    },
+    "selectAll": "Select every row",
+    "selectRow": "Select {{name}}"
   },
   "storage": {
     "san": {
@@ -1565,7 +2468,8 @@
         "hba_id": "Identifier",
         "hba_type": "Type",
         "updated": "Reported"
-      }
+      },
+      "noMatch": "No adapter matches the search."
     },
     "disks": {
       "title": "Disks",
@@ -1580,7 +2484,8 @@
         "disk_used": "Used",
         "disk_model": "Vendor and model",
         "disk_dg": "Disk group"
-      }
+      },
+      "noMatch": "No disk matches the search."
     }
   },
   "objectTags": {
@@ -1603,7 +2508,12 @@
       "label": "Detach tag {{name}}",
       "question": "Detach tag {{name}}?",
       "confirm": "Detach"
-    }
+    },
+    "dataOf": "Data of tag {{name}}",
+    "dataTitle": "{{name}}",
+    "attachData": "Data of this attachment",
+    "tagData": "Data of the tag, shared",
+    "tagDataWhere": "changed in the tag panel"
   },
   "crossLink": {
     "hint": "Show this {{kind}}",
@@ -1657,7 +2567,11 @@
       "queueing": "Applying…",
       "queued_one": "{{action}} applied to 1 action.",
       "queued_other": "{{action}} applied to {{count}} actions.",
-      "failure": "{{name}}: {{message}}"
+      "failure": "{{name}}: {{message}}",
+      "descriptions": {
+        "cancel": "Take the actions out of the queue before an agent takes them.",
+        "redo": "Queue the actions again, for an agent to run them once more."
+      }
     },
     "statusNames": {
       "W": "Waiting",
@@ -1697,7 +2611,9 @@
         "record": "Record"
       },
       "noDefinition": "No definition yet.",
-      "tabs": "Form tabs"
+      "tabs": "Form tabs",
+      "editHint": "A FormsManager renames a form, changes its type or its folder here; the definition is changed with Edit. Each change is written at once in the collector.",
+      "nameRequired": "A form needs a name."
     },
     "form": {
       "open": "New form",
@@ -1725,7 +2641,6 @@
     "render": {
       "submit": "Submit",
       "addGroup": "Add an entry",
-      "removeGroup": "Remove this entry",
       "violations_one": "{{count}} input to correct before submitting.",
       "violations_other": "{{count}} inputs to correct before submitting.",
       "mandatory": "mandatory",
@@ -1739,7 +2654,50 @@
       "candidatesError": "Candidates unavailable: {{message}}",
       "toggleAll": "Toggle all",
       "subFormMissing": "The sub-form is not named.",
-      "subFormNotFound": "Sub-form {{name}} not found."
+      "subFormNotFound": "Sub-form {{name}} not found.",
+      "noCandidateMatch": "No candidate matches.",
+      "entryName": "{{label}} {{index}}",
+      "removeEntry": "Remove entry {{index}}",
+      "connectorUnsaved": "Its choices come from an external API through a connector: they show once the form is saved.",
+      "candidatesTruncated": "Only the first {{count}} candidates are listed: type to narrow among them.",
+      "addCandidate": "Add a value",
+      "removeChoice": "Remove",
+      "removeChoiceNamed": "Remove {{name}}"
+    },
+    "definitionMore_one": "+{{count}} more line",
+    "definitionMore_other": "+{{count}} more lines",
+    "actions": {
+      "open": "Actions",
+      "failure": "{{name}}: {{message}}",
+      "data": {
+        "delete": {
+          "label": "Delete",
+          "question_one": "Delete this form? Its publications and responsibles go with it. This cannot be undone.",
+          "question_other": "Delete these {{count}} forms? Their publications and responsibles go with them. This cannot be undone.",
+          "confirm_one": "Delete the form",
+          "confirm_other": "Delete {{count}} forms",
+          "running": "Deleting…",
+          "done_one": "1 form deleted.",
+          "done_other": "{{count}} forms deleted."
+        }
+      }
+    },
+    "teams": {
+      "readOnly": "Only a FormsManager responsible for the form changes its teams."
+    },
+    "revisions": {
+      "tab": "Revisions",
+      "description": "Changes of its definition",
+      "empty": "No revision recorded yet.",
+      "current": "current version",
+      "change": "Show the change",
+      "compare": "Compare with the current version",
+      "restore": "Restore this version",
+      "restoreQuestion": "Restore the definition as it was in {{version}}? A new revision: the history keeps every one.",
+      "restoreConfirm": "Restore",
+      "restoring": "Restoring…",
+      "same": "No change to the definition.",
+      "since": "Changes from {{version}} to the current version:"
     }
   },
   "requests": {
@@ -1756,7 +2714,8 @@
       "succeeded": "completed",
       "failed": "completed with errors (code {{code}})",
       "running": "in progress ({{status}})",
-      "noLog": "Nothing logged."
+      "noLog": "Nothing logged.",
+      "data": "Data returned"
     },
     "empty": "No form is available to you.",
     "folderCount_one": "{{count}} form",
@@ -1792,6 +2751,12 @@
       "view": "View the request",
       "all": "All requests",
       "new": "New request"
+    },
+    "payload": {
+      "summary": "Preview the data sent",
+      "copy": "Copy",
+      "copied": "Copied",
+      "hint": "The body sent on submission, as the inputs stand. An input whose condition does not hold is left out; an empty one is sent empty."
     }
   },
   "packages": {
@@ -1810,6 +2775,15 @@
       "pkg_updated": "Updated",
       "nodes.app": "Node app",
       "nodes.os_name": "OS"
+    },
+    "detail": {
+      "title": "Installed package",
+      "groups": {
+        "package": "Package",
+        "signature": "Signature",
+        "node": "Node",
+        "record": "Record"
+      }
     }
   },
   "switches": {
@@ -1831,6 +2805,15 @@
       "sw_updated": "Updated",
       "node_id": "Remote node id",
       "id": "Record id"
+    },
+    "detail": {
+      "title": "Switch port",
+      "groups": {
+        "switch": "Switch",
+        "port": "Port",
+        "remote": "Plugged on the other end",
+        "record": "Record"
+      }
     }
   },
   "hardware": {
@@ -1847,6 +2830,14 @@
       "updated": "Updated",
       "nodes.app": "Node app",
       "nodes.os_name": "OS"
+    },
+    "detail": {
+      "title": "Hardware component",
+      "groups": {
+        "component": "Component",
+        "node": "Node",
+        "record": "Record"
+      }
     }
   },
   "allRequests": {
@@ -2008,6 +2999,88 @@
       "rulesetExcluded": "Ruleset {{name}} no longer included."
     }
   },
+  "objectCompliance": {
+    "status": {
+      "title": "Last checks",
+      "nodeRuns": "Node",
+      "none": "No module has been checked on this node.",
+      "nokCount_one": "{{count}} module not ok",
+      "nokCount_other": "{{count}} modules not ok"
+    },
+    "modulesets": {
+      "title": "Modulesets",
+      "none": "No moduleset attached.",
+      "attach": "Attach a moduleset",
+      "detach": "Detach the moduleset {{name}}",
+      "attached": "Moduleset {{name}} attached.",
+      "detached": "Moduleset {{name}} detached.",
+      "encapTitle": "Modulesets of the containers"
+    },
+    "rulesets": {
+      "title": "Rulesets",
+      "none": "No ruleset attached.",
+      "attach": "Attach a ruleset",
+      "detach": "Detach the ruleset {{name}}",
+      "attached": "Ruleset {{name}} attached.",
+      "detached": "Ruleset {{name}} detached.",
+      "encapTitle": "Rulesets of the containers"
+    },
+    "instanceHint": "Attached to the service: they apply to all its instances, and change in its panel."
+  },
+  "complianceStatus": {
+    "title": "Compliance status",
+    "sectionsLabel": "Show",
+    "sections": {
+      "runs": "Runs",
+      "module": "By module",
+      "node": "By node",
+      "service": "By service"
+    },
+    "by": {
+      "module": "Module",
+      "node": "Node",
+      "service": "Service"
+    },
+    "summary": {
+      "compliance": "Compliance",
+      "compliant_one": "{{count}} of {{total}} run ok or n/a",
+      "compliant_other": "{{count}} of {{total}} runs ok or n/a",
+      "total": "Runs",
+      "obsolete": "obsolete",
+      "obsoleteHint": "Checks older than {{days}} days, whatever their status"
+    },
+    "pct": "{{pct}} %",
+    "noRuns": "No check run matches.",
+    "showRuns": "Show the runs of {{name}}",
+    "fields": {
+      "id": "Id",
+      "run_date": "Run date",
+      "node_id": "Node id",
+      "nodes.nodename": "Node",
+      "svc_id": "Service id",
+      "services.svcname": "Service",
+      "run_module": "Module",
+      "run_status": "Status",
+      "rset_md5": "Ruleset md5",
+      "run_log": "Log"
+    },
+    "actions": {
+      "open": "Actions",
+      "failure": "{{name}}: {{message}}",
+      "data": {
+        "delete": {
+          "label": "Delete",
+          "question_one": "Delete this check run? Only the last run of each module is kept: the next check of the module records it again. This cannot be undone.",
+          "question_other": "Delete these {{count}} check runs? Only the last run of each module is kept: the next check of the module records it again. This cannot be undone.",
+          "confirm_one": "Delete the check run",
+          "confirm_other": "Delete {{count}} check runs",
+          "running": "Deleting…",
+          "done_one": "1 check run deleted.",
+          "done_other": "{{count}} check runs deleted."
+        }
+      }
+    }
+  },
   "complianceLogs": {
     "title": "Compliance logs",
     "fields": {
@@ -2030,6 +3103,17 @@
       "killed": "killed"
     }
   },
+  "complianceRun": {
+    "title": "Module run",
+    "noOutput": "The run wrote no output.",
+    "obsolete": "This check is more than {{days}} days old: its status is the last one known, it may no longer tell the state of the module.",
+    "groups": {
+      "run": "Run",
+      "object": "Node and service",
+      "ruleset": "Ruleset",
+      "output": "Output"
+    }
+  },
   "designer": {
     "create": "Create",
     "newName": {
@@ -2039,7 +3123,7 @@
     "actions": "Actions",
     "title": "Compliance designer",
     "loading": "Loading the rulesets and modulesets…",
-    "navigator": "Rulesets and modulesets",
+    "navigator": "Compliance objects",
     "filter": "Filter by name",
     "quickFilters": "Quick filters",
     "quick": {
@@ -2060,7 +3144,9 @@
       "ruleset": "Ruleset",
       "moduleset": "Moduleset",
       "filterset": "Filterset",
-      "group": "Group"
+      "group": "Group",
+      "module": "compliance module",
+      "personalGroup": "Private group of the user ({{role}})"
     },
     "namePlaceholder": "Name",
     "noMatch": "Nothing matches",
@@ -2077,10 +3163,18 @@
       "rulesets_one": "{{count}} ruleset",
       "rulesets_other": "{{count}} rulesets",
       "objects_one": "{{count}} object",
-      "objects_other": "{{count}} objects"
+      "objects_other": "{{count}} objects",
+      "modulesets_one": "{{count}} moduleset",
+      "modulesets_other": "{{count}} modulesets"
     },
     "clone": "Clone",
-    "export": "JSON",
+    "export": {
+      "open": "Download the JSON",
+      "running": "Exporting…",
+      "hint": "Download the compliance as the collector holds it, in the format of the import: the rulesets and modulesets published to you, with the rulesets and filtersets they use. Pending changes are not in it.",
+      "failed": "The export failed: {{message}}",
+      "title": "Export"
+    },
     "delete": "Delete",
     "deleteQuestion": "Delete {{name}}?",
     "deleteQuestionUsed_one": "{{name}} is used once. Delete it anyway?",
@@ -2127,14 +3221,12 @@
     "includesHint": "Drop a ruleset here, or onto this ruleset in the list, to include it.",
     "includeRuleset": "Include a ruleset",
     "modules": "Modules",
-    "modulesHint": "Autofix lets the agent fix a module without being asked.",
+    "modulesHint": "Drop a module here, or onto this moduleset in the list, to add it. Autofix lets the agent fix a module without being asked.",
     "noModule": "No module yet.",
     "module": "Module",
     "autofix": "Autofix",
     "autofixOf": "Autofix of {{name}}",
     "removeModule": "Remove {{name}}",
-    "addModule": "Add a module",
-    "moduleName": "Module name",
     "attachedRulesets": "Attached rulesets",
     "attachedRulesetsHint": "Drop a ruleset here, or onto this moduleset in the list, to attach it.",
     "attachRuleset": "Attach a ruleset",
@@ -2160,14 +3252,29 @@
     },
     "sandbox": {
       "title": "Sandbox",
-      "text": "Changes stay in this browser tab and are never saved to the collector.",
+      "text": "Changes are kept in this browser, from one visit to the next, until you commit them to the collector or discard them.",
       "changes_one": "{{count}} change",
       "changes_other": "{{count}} changes",
       "undo": "Undo",
       "undoHint": "Undo the last change (Ctrl+Z)",
       "reset": "Reset",
       "resetQuestion_one": "Discard {{count}} change?",
-      "resetQuestion_other": "Discard {{count}} changes?"
+      "resetQuestion_other": "Discard {{count}} changes?",
+      "commit": "Commit",
+      "commitQuestion_one": "Save {{count}} change to the collector?",
+      "commitQuestion_other": "Save {{count}} changes to the collector?",
+      "commitDetails": "They are saved together, in the order they were made: if the collector refuses one, none is saved and they all stay in the sandbox.",
+      "committing": "Saving…",
+      "committed_one": "{{count}} change saved to the collector.",
+      "committed_other": "{{count}} changes saved to the collector.",
+      "commitFailed": "Nothing was saved: {{message}}. All the changes are still in the sandbox.",
+      "restoring": "Restoring version {{commit}}: review the pending changes, then commit them to the collector.",
+      "none": "No pending change.",
+      "commitConfirm_one": "Commit {{count}} change",
+      "commitConfirm_other": "Commit {{count}} changes",
+      "resetConfirm_one": "Discard {{count}} change",
+      "resetConfirm_other": "Discard {{count}} changes",
+      "commitRefused": "Nothing was saved: the collector refused “{{change}}”: {{message}}. All the changes are still in the sandbox."
     },
     "welcome": {
       "missing": "The selected object is not in the draft anymore.",
@@ -2249,13 +3356,147 @@
     "filtersetUsedBy": "Rulesets using it",
     "propertiesHint": "Drop a filterset here to make this ruleset contextual with it.",
     "showFilterset": "Show",
-    "groups": "Groups",
+    "groups": "Users & Groups",
     "groupDragHint": "Drag onto a ruleset or a moduleset to publish it to this group, or onto a Teams list for that role",
     "editInGroups": "Manage in the Groups view",
     "groupReadOnly": "Read only here: the designer gives groups a role on rulesets and modulesets, the group itself is managed in the Groups view.",
     "groupResponsibleFor": "Responsible for",
     "groupPublishedTo": "Published to it",
-    "contextualTitle": "Contextual: {{filterset}}"
+    "contextualTitle": "Contextual: {{filterset}}",
+    "history": {
+      "subject_one": "{{count}} change from the compliance designer",
+      "subject_other": "{{count}} changes from the compliance designer",
+      "recorded": "Recorded in the compliance history as version {{commit}}.",
+      "failed": "The compliance history could not record this version: {{message}}.",
+      "baseline": "Compliance export as found before a designer commit: the changes made elsewhere since the last version",
+      "restoreSubject": "Restore version {{commit}}: {{subject}}"
+    },
+    "historyPanel": {
+      "open": "History",
+      "title": "Compliance history",
+      "objectHint": "The versions in which {{name}} changed",
+      "onlyObject": "Only the versions in which this changed:",
+      "allObjects": "Show every version",
+      "kindFilter": "Kind of version",
+      "source": {
+        "all": "All",
+        "designer": "Designer commits",
+        "elsewhere": "Changes made elsewhere"
+      },
+      "textFilter": "Search the messages",
+      "loading": "Reading the history…",
+      "empty": "No version yet: the history starts with the first commit of the designer.",
+      "noMatch": "No version matches.",
+      "older": "Show older versions",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "elsewhere": "Changes made elsewhere",
+      "back": "All versions",
+      "message": "Message",
+      "changes": "What changed, compared with {{commit}}",
+      "firstVersion": "First version",
+      "firstVersionHint": "The history starts here: {{rulesets}} rulesets, {{modulesets}} modulesets and {{filtersets}} filtersets.",
+      "noChange": "Nothing changed in the export.",
+      "rawDiff": "Raw diff",
+      "download": "Download this version",
+      "openObject": "Open it in the designer",
+      "status": {
+        "created": "created",
+        "deleted": "deleted",
+        "modified": "modified"
+      },
+      "fromTo": "{{from}} → {{to}}",
+      "changedItems": "changed: {{items}}",
+      "changedField": "changed",
+      "fields": {
+        "name": "Name",
+        "type": "Type",
+        "public": "Public",
+        "filterset": "Filterset",
+        "variables": "Variables",
+        "modules": "Modules",
+        "rulesets": "Rulesets",
+        "modulesets": "Modulesets",
+        "publications": "Published to",
+        "responsibles": "Responsible",
+        "filters": "Filters"
+      },
+      "restore": {
+        "title": "Restore",
+        "pending": "Commit or reset the pending changes first: a restore starts from the configuration the collector holds.",
+        "current": "This is the current configuration: nothing to restore.",
+        "hint": "Brings the rulesets and modulesets back to this version, as pending changes in the sandbox, to review and commit.",
+        "action": "Restore this version",
+        "confirm": "Restore",
+        "question_one": "Restore version {{commit}}? {{count}} change will be added to the sandbox.",
+        "question_other": "Restore version {{commit}}? {{count}} changes will be added to the sandbox.",
+        "details": "Review them in the change log, then Commit to save them; Reset drops them. The definitions of the filtersets are not restored: they are managed in the Filtersets view.",
+        "skipped_one": "{{count}} change cannot be made:",
+        "skipped_other": "{{count}} changes cannot be made:",
+        "staged": "Version {{commit}}: {{count}} changes added to the sandbox. Review them, then commit."
+      }
+    },
+    "import": {
+      "title": "Import",
+      "intro": "Paste or load the JSON of a compliance export: the designer's, a ruleset's or a moduleset's, or the historical collector's. Filtersets, rulesets and modulesets existing by name are reused and only the relations they lack are added; new objects are published to your default group. The import applies all or nothing.",
+      "file": "Load a file…",
+      "orPaste": "or paste the JSON below.",
+      "text": "JSON of the dump",
+      "preview": "To import",
+      "line": "{{kind}}: {{names}}",
+      "kinds": {
+        "filtersets_one": "{{count}} filterset",
+        "filtersets_other": "{{count}} filtersets",
+        "rulesets_one": "{{count}} ruleset",
+        "rulesets_other": "{{count}} rulesets",
+        "modulesets_one": "{{count}} moduleset",
+        "modulesets_other": "{{count}} modulesets"
+      },
+      "more_one": "and {{count}} more",
+      "more_other": "and {{count}} more",
+      "ignored": "Ignored, unknown to the import: {{keys}}.",
+      "pending_one": "The designer has {{count}} change not committed: commit or reset it first, the import writes to the collector directly.",
+      "pending_other": "The designer has {{count}} changes not committed: commit or reset them first, the import writes to the collector directly.",
+      "failed": "Nothing was imported: {{message}}",
+      "submit": "Import",
+      "running": "Importing…",
+      "done_one": "Imported, {{count}} line from the collector:",
+      "done_other": "Imported, {{count}} lines from the collector:",
+      "unchanged": "The compliance was already as imported: no new version recorded.",
+      "notJson": "This is not valid JSON: {{message}}",
+      "badShape": "This JSON is not a compliance export: an object whose filtersets, rulesets and modulesets are lists of named objects is expected.",
+      "nothing": "This export holds no filterset, ruleset nor moduleset.",
+      "baseline": "Compliance export as found before an import: the changes made elsewhere since the last version",
+      "subject": "Import of {{filtersets}} filtersets, {{rulesets}} rulesets and {{modulesets}} modulesets"
+    },
+    "exportObject": "JSON",
+    "dump": {
+      "open": "Import / Export",
+      "title": "Import and export the compliance"
+    },
+    "modulesRepo": "Modules",
+    "moduleDragHint": "Drag onto a moduleset to add it to its modules",
+    "moduleNotRunnable": "An agent cannot run it",
+    "editInModules": "Open in Compliance modules",
+    "moduleReadOnly": "Its files are edited in the Compliance modules view; here it is added to modulesets, by dragging it onto one or with the picker.",
+    "moduleUsedBy": "Modulesets naming it",
+    "addToModuleset": "Add to a moduleset",
+    "pickModule": "Add a module of the repository",
+    "moduleNotInRepo": "{{name}} is not in the module repository: the agents get no such module from it",
+    "resume": {
+      "restored_one": "{{count}} pending change kept in this browser, made on {{at}}, was applied again to the collector's current data.",
+      "restored_other": "{{count}} pending changes kept in this browser, the last made on {{at}}, were applied again to the collector's current data.",
+      "dropped_one": "{{count}} pending change kept in this browser no longer applies, the collector's data having changed meanwhile: it was left out.",
+      "dropped_other": "{{count}} pending changes kept in this browser no longer apply, the collector's data having changed meanwhile: they were left out.",
+      "unknown": "A change this version of the designer cannot read",
+      "dismiss": "Dismiss",
+      "elsewhere": "Another tab changed the pending changes kept in this browser. Load them, or the next change made here replaces them.",
+      "load": "Load them"
+    },
+    "sectionModified_one": "{{count}} object with unsaved changes",
+    "sectionModified_other": "{{count}} objects with unsaved changes",
+    "publicTitle": "Public: listed on its own and attachable.",
+    "privateTitle": "Private: only reachable through the rulesets that include it."
   },
   "bookmarks": {
     "title": "Bookmarks",
@@ -2271,6 +3512,193 @@
     "clearQuestion_one": "Remove the bookmark?",
     "clearQuestion_other": "Remove all {{count}} bookmarks?"
   },
+  "usage": {
+    "checking": "Checking where it is used…",
+    "error": "Its uses could not be read: {{message}}",
+    "acknowledgeUnknown": "Delete it without knowing where it is used",
+    "emptied": "left with no entry: selects nothing",
+    "filterset": {
+      "warning_one": "Used in {{count}} place. Deleting it also removes it from there:",
+      "warning_other": "Used in {{count}} places. Deleting it also removes it from there:",
+      "acknowledge_one": "I understand that this use is removed with it",
+      "acknowledge_other": "I understand that these {{count}} uses are removed with it",
+      "filtersets_one": "Nested in {{count}} filterset",
+      "filtersets_other": "Nested in {{count}} filtersets",
+      "rulesets_one": "Restricts {{count}} ruleset",
+      "rulesets_other": "Restricts {{count}} rulesets",
+      "users_one": "Session filter of {{count}} user",
+      "users_other": "Session filter of {{count}} users",
+      "sysreportGrants_one": "{{count}} sysreport access grant",
+      "sysreportGrants_other": "{{count}} sysreport access grants",
+      "thresholds_one": "{{count}} check threshold",
+      "thresholds_other": "{{count}} check thresholds",
+      "comparisons_one": "In {{count}} statistics comparison",
+      "comparisons_other": "In {{count}} statistics comparisons"
+    },
+    "filter": {
+      "warning_one": "Used by {{count}} filterset. Deleting it also removes it from there:",
+      "warning_other": "Used by {{count}} filtersets. Deleting it also removes it from there:",
+      "acknowledge_one": "I understand that this filterset changes",
+      "acknowledge_other": "I understand that these {{count}} filtersets change",
+      "filterFiltersets_one": "In {{count}} filterset",
+      "filterFiltersets_other": "In {{count}} filtersets"
+    },
+    "consequences": {
+      "filtersets": "They lose this entry and select other objects, and so does everything that uses them.",
+      "rulesets": "They lose their filterset: a contextual ruleset then applies to no node.",
+      "users": "Their session filter is removed: their lists show every object again.",
+      "sysreportGrants": "These teams lose their access to the sysreports of these nodes.",
+      "thresholds": "Removed: the checks of these nodes fall back to their default thresholds.",
+      "comparisons": "It is removed from these comparisons.",
+      "filterFiltersets": "They lose this filter and select other objects, and so does everything that uses them: rulesets, session filters, thresholds…"
+    }
+  },
+  "claimMappings": {
+    "title": "Claim mappings",
+    "intro": "Rules translating the claims your identity provider sends at sign-in into access to the collector and teams. A rule matches when the claim equals the value, or, for a list such as groups, contains it. Once a rule allows signing in, only the identities matching one may sign in through the provider, and those may have their account created at their first sign-in. The teams a rule names follow the claims at every sign-in; the others are managed in Teams. Signing in with a collector password is not affected.",
+    "fields": {
+      "claim": "Claim",
+      "value": "Value",
+      "allow_access": "Allows signing in",
+      "author": "Changed by",
+      "updated": "Changed",
+      "id": "Rule id",
+      "group_roles": "All groups granted",
+      "group_ids": "Team ids",
+      "privilege_roles": "Privilege groups granted",
+      "org_roles": "Organizational groups granted",
+      "privilege_ids": "Privilege group ids",
+      "org_ids": "Organizational group ids"
+    },
+    "access": {
+      "yes": "Allows signing in",
+      "no": "No"
+    },
+    "detail": {
+      "yes": "Yes",
+      "no": "No",
+      "title": "Claim rule",
+      "groups": {
+        "rule": "Rule",
+        "record": "Record"
+      },
+      "noPrivilege": "No privilege group",
+      "noOrg": "No organizational group"
+    },
+    "current": {
+      "title": "Claims of your current sign-in",
+      "intro": "What your identity provider sent when you signed in. Click a value to start a rule from it.",
+      "notOidc": "You signed in with a collector password: there are no claims to show. Sign in through the identity provider to see the claims it sends.",
+      "none": "Your sign-in carries no claim a rule could use.",
+      "map": "Create a rule for {{claim}} = {{value}}"
+    },
+    "form": {
+      "open": "New rule",
+      "createTitle": "New claim rule",
+      "editTitle": "Edit the claim rule",
+      "edit": "Edit",
+      "intro": "The rule applies at the next sign-in of each account, and at once to the Bearer tokens of scripts.",
+      "claimHint": "The claim name as the provider sends it (groups, email, roles…), or a dotted path into a nested claim (realm_access.roles).",
+      "valueHint": "Compared exactly, case included. For a list, the rule matches when the list contains this value.",
+      "effects": "What the rule does",
+      "accessHint": "Once at least one rule allows signing in, the identities matching none are refused, even with an existing account.",
+      "noTeam": "No team",
+      "teamHint": "As many groups as needed. Everybody and the private groups of the users cannot be granted.",
+      "noEffect": "Choose at least one effect: allow signing in, or grant teams.",
+      "saving": "Saving…",
+      "saveCreate": "Create the rule",
+      "saveEdit": "Save the rule",
+      "removeTeam": "Remove {{team}}",
+      "teamWarning_one": "{{teams}} will follow the claims: at their next sign-in through the provider, the accounts matching no rule granting it leave it, even if they were added by hand.",
+      "teamWarning_other": "{{teams}} will follow the claims: at their next sign-in through the provider, the accounts matching no rule granting one of them leave it, even if they were added by hand.",
+      "add": {
+        "privilege": "Add a privilege group",
+        "org": "Add an organizational group"
+      },
+      "kindHint": {
+        "privilege": "What the matching accounts may do: Manager, NodeManager…",
+        "org": "What the matching accounts see: the nodes, services and applications of these groups."
+      }
+    },
+    "delete": {
+      "question": "Delete the rule {{rule}}?",
+      "consequence": "The accounts the rules put in a team no other rule names leave it at once; those added by hand stay, and the team is managed by hand again. The teams other rules still name follow the claims at the next sign-in of each account."
+    }
+  },
+  "fieldConstraints": {
+    "title": "Field values",
+    "add": "New constraint",
+    "intro": "The attributes of nodes, services and apps whose values are constrained; the others are free text. Suggest: the detail panel offers the values of a list in a dropdown, another value can still be typed. Strict: only the values of the list. Regex: only the values matching a pattern. In strict and regex modes the collector refuses the other values a user sets, except clearing the attribute or keeping the value it holds. The values the agents report are never refused, and the values the objects hold are never changed.",
+    "loadError": "Could not load the field values: {{message}}",
+    "none": "No attribute is constrained: every attribute is free text.",
+    "fields": {
+      "object_kind": "Panel",
+      "field": "Attribute",
+      "mode": "Mode",
+      "allowed": "Allowed values",
+      "value_count": "Values",
+      "pattern": "Pattern",
+      "values": "Values (JSON)",
+      "updated": "Changed",
+      "updated_by": "Changed by"
+    },
+    "objects": {
+      "node_one": "node",
+      "node_other": "nodes",
+      "service_one": "service",
+      "service_other": "services",
+      "app_one": "app",
+      "app_other": "apps"
+    },
+    "modes": {
+      "suggest": "Suggest",
+      "strict": "Strict",
+      "regex": "Regex"
+    },
+    "modeHints": {
+      "suggest": "The values of a list are offered in a dropdown; another one can still be typed.",
+      "strict": "Only the values of a list can be chosen. Clearing the attribute and keeping the value it holds stay possible.",
+      "regex": "Only a value matching a pattern can be typed. Clearing the attribute and keeping the value it holds stay possible."
+    },
+    "more_one": "and {{count}} more",
+    "more_other": "and {{count}} more",
+    "panel": {
+      "newTitle": "New constraint",
+      "title": "Values of {{field}}",
+      "chooseField": "Choose an attribute…",
+      "chooseKind": "Choose a panel…",
+      "noFieldLeft": "Every attribute of this panel is constrained",
+      "fieldHint": "The attributes of this panel that a user sets and that have no constraint yet.",
+      "values_one": "Values ({{count}}), one per line",
+      "values_other": "Values ({{count}}), one per line",
+      "import_one": "Add the {{count}} value in use",
+      "import_other": "Add the {{count}} values in use",
+      "importNone": "All the values in use are listed",
+      "valuesHint": "In the order the dropdown shows them. Spaces around a value are removed, duplicates are dropped. Values are case-sensitive: “Paris” and “paris” are two values.",
+      "pattern": "Pattern",
+      "patternHint": "A regular expression in RE2 syntax, which the whole value must match: R[0-9]{2} accepts R11, not R1 nor xR11. Spaces around it are removed.",
+      "patternUnchecked": "The browser cannot check this pattern: the collector will say on saving whether it is valid.",
+      "sample": "Try a value",
+      "sampleMatches": "matches",
+      "sampleFails": "does not match",
+      "heldError": "Could not count the values in use: {{message}}",
+      "outside": {
+        "suggest_one": "Values outside the list, on {{count}} {{objects}}: {{values}}.",
+        "suggest_other": "Values outside the list, on {{count}} {{objects}}: {{values}}.",
+        "strict_one": "Values outside the list, on {{count}} {{objects}}: {{values}}. They are kept, but changing one will take a value of the list.",
+        "strict_other": "Values outside the list, on {{count}} {{objects}}: {{values}}. They are kept, but changing one will take a value of the list.",
+        "regex_one": "Values not matching the pattern, on {{count}} {{objects}}: {{values}}. They are kept, but changing one will take a value that matches.",
+        "regex_other": "Values not matching the pattern, on {{count}} {{objects}}: {{values}}. They are kept, but changing one will take a value that matches."
+      },
+      "tooMany": "A list holds at most {{max}} values.",
+      "save": "Save",
+      "saving": "Saving…",
+      "readOnly": "Only a Manager changes the field values.",
+      "remove": "Remove the constraint",
+      "removeQuestion": "Remove the constraint of {{field}}? The attribute becomes free text again; the values the nodes hold do not change.",
+      "removing": "Removing…"
+    }
+  },
   "search": {
     "title": "Search the collector",
     "placeholder": "Nodes, services, addresses, users, request numbers…",
@@ -2279,6 +3707,7 @@
     "all": "All",
     "results": "Results",
     "hint": "Type at least 2 characters. Names, ids, addresses, e-mails and request numbers are searched.",
+    "prefixHint": "Start with a prefix, such as node:, svc: or fset:, to search a single kind; hovering a badge shows its prefix.",
     "searching": "Searching…",
     "none": "Nothing matches “{{query}}”.",
     "more": "Show more",
@@ -2290,12 +3719,12 @@
     "instanceLabel": "{{service}} on {{node}}",
     "container": "container {{name}}",
     "tagExclude": "excludes {{pattern}}",
-    "privilege": "privilege",
     "public": "public",
     "keys": {
       "move": "to move",
       "open": "to open",
-      "close": "to close"
+      "close": "to close",
+      "remove": "to remove"
     },
     "kinds": {
       "node": "Nodes",
@@ -2306,40 +3735,53 @@
       "disk": "Disks",
       "tag": "Tags",
       "user": "Users",
-      "group": "Teams",
+      "group": "Groups",
+      "privilege": "Privileges",
       "request": "Requests",
       "moduleset": "Modulesets",
       "ruleset": "Rulesets",
       "filterset": "Filtersets",
       "form": "Forms"
+    },
+    "recent": {
+      "title": "Recently opened",
+      "clear": "Clear",
+      "current": "open",
+      "noneOfKind": "Nothing of this kind opened recently."
     }
   },
+  "panelSide": {
+    "toLeft": "Move the panels to the left",
+    "toRight": "Move the panels to the right"
+  },
   "panelHistory": {
-    "label": "History of the records shown",
-    "title": "History",
     "sections": {
       "now": "Now",
       "hour": "Last Hour",
       "day": "Last Day",
       "week": "Last Week"
     },
-    "show": "Show {{name}}",
     "remove": "Remove {{name}} from the history",
+    "grouping": {
+      "label": "Group the history",
+      "time": "By time",
+      "kind": "By kind"
+    },
     "clear": "Clear the history",
-    "menu_one": "History, 1 record",
-    "menu_other": "History, {{count}} records",
-    "reopen_one": "Reopen the panel on {{name}}",
-    "reopen_other": "Reopen the panel on {{name}} ({{count}} records in the history)"
+    "reopen": "Reopen the panel on {{name}}"
   },
   "realtime": {
     "paused": "Paused",
-    "pausedHint": "Live updates are off: the views refresh when you navigate, sort or reload.",
+    "pausedHint": "Live updates are off: the views refresh when you navigate, sort or reload, or press r.",
     "turnOff": "Click to turn live updates off.",
     "turnOn": "Click to turn live updates back on.",
     "live": "Live",
     "offline": "Offline",
     "liveHint": "The views follow the collector: changes appear as they happen.",
-    "offlineHint": "Live updates are interrupted. Reconnecting; the views are refreshed once back."
+    "offlineHint": "Live updates are interrupted. Reconnecting; the views are refreshed once back.",
+    "refreshing": "Refreshing…",
+    "refreshed": "Refreshed",
+    "refreshHint": "Press r to read the data again."
   },
   "impersonation": {
     "start": "Impersonate",
@@ -2475,8 +3917,15 @@
       "failure": "{{name}}: {{message}}",
       "items": {
         "freeze": "Freeze every node",
-        "thaw": "Thaw every node",
-        "abort": "Abort the running orchestration"
+        "thaw": "Unfreeze every node",
+        "abort": "Abort the running orchestration",
+        "updatepkg": "Update the OpenSVC agent of every node"
+      },
+      "descriptions": {
+        "freeze": "The daemon of each node stops orchestrating its instances.",
+        "thaw": "The daemon of each node orchestrates its instances again.",
+        "abort": "Abort the orchestration running on the whole cluster.",
+        "updatepkg": "Upgrade the opensvc packages of every node, one node at a time: each daemon restarts in turn, the services keep running. Requires a recent om3 agent."
       }
     }
   },
@@ -2508,13 +3957,56 @@
         "state": "State",
         "record": "Record"
       }
+    },
+    "actions": {
+      "open": "Actions",
+      "question_one": "Queue {{action}} through the agent of this instance?",
+      "question_other": "Queue {{action}} through the agents of {{count}} instances?",
+      "confirm": "Queue",
+      "queueing": "Queuing…",
+      "queued_one": "{{action}} queued: one agent run.",
+      "queued_other": "{{action}} queued: {{count}} agent runs, one per instance.",
+      "failure": "{{name}}: {{message}}",
+      "items": {
+        "enable": "Enable",
+        "disable": "Disable",
+        "start": "Start",
+        "restart": "Restart",
+        "stop": "Stop"
+      },
+      "groups": {
+        "maintenance": "Maintenance",
+        "startStop": "Start and stop"
+      },
+      "descriptions": {
+        "enable": "Enable the selected resources: they are started and monitored again.",
+        "disable": "Disable the selected resources: they are no longer started nor monitored.",
+        "start": "Start the selected resources.",
+        "restart": "Stop then start the selected resources.",
+        "stop": "Stop the selected resources."
+      }
     }
   },
   "actionsMenu": {
     "dataActions": "Data actions",
     "more_one": "and 1 more",
     "more_other": "and {{count}} more",
-    "compare": "Compare the selection"
+    "compare": "Compare the selection",
+    "dismiss": "Dismiss",
+    "choiceLoading": "Loading the choices…",
+    "choiceNone": "Nothing matches.",
+    "checking": "Checking where they are used…",
+    "acknowledge_one": "I understand that this use is removed with it",
+    "acknowledge_other": "I understand that these uses are removed with them",
+    "impacts": {
+      "downTime": "down-time",
+      "dataLoss": "data loss"
+    },
+    "filter": "Filter the actions",
+    "noMatch": "No action matches.",
+    "dataDescriptions": {
+      "delete": "Remove the selected items from the collector, for good."
+    }
   },
   "commonality": {
     "title": "Commonality of {{what}}",
@@ -2551,5 +4043,1106 @@
     "copy": "Copy as text",
     "copied": "Copied",
     "copyFailed": "Copy failed"
+  },
+  "about": {
+    "title": "About",
+    "tagline": "The collector of OpenSVC: the inventory of the nodes and the services of your clusters, their state over time, their compliance, and the actions run on them.",
+    "interface": "Interface",
+    "api": "API",
+    "publisher": {
+      "title": "Publisher",
+      "contact": "Contact",
+      "support": "Support"
+    },
+    "licenses": {
+      "title": "Licenses and sources",
+      "under": "under the {{license}} license",
+      "bundled": "This interface bundles the following software, each under its own license:"
+    },
+    "privacy": {
+      "title": "Personal data (GDPR)",
+      "none": "This interface collects nothing for OpenSVC SAS: no analytics, no tracking, no advertising. Your browser talks to the API of this collector alone, apart from the links you follow and the sign-in with an identity provider.",
+      "controller": "The collector is run by your organization, the controller of the data it records, such as the accounts, the sign-ins and the actions done.",
+      "browser": "Your browser keeps on this device, in its local storage: your display preferences and the drafts of the compliance designer; for the time of the tab: the records you opened and, signed in with a password, your credentials. Clearing the site data of your browser removes them all.",
+      "oidc": "Signed in through an identity provider, its own policy applies to what it handles.",
+      "assistant": "When your organization has set up an AI assistant, what you write to it goes to that assistant, through the collector.",
+      "rights": "For your rights over the data the collector records, ask its operator; for this software, write to"
+    },
+    "cookies": {
+      "title": "Cookies",
+      "text": "Signing in through an identity provider sets the cookies that hold your session, needed for the sign-in to work; they are removed when you sign out. The interface sets no other cookie, none for tracking."
+    },
+    "accessibility": {
+      "title": "Accessibility",
+      "text": "This interface comes in English and French, can be used with the keyboard, offers light and dark modes and high-contrast and colour-blind friendly themes, and never conveys a state by colour alone. Report a barrier to"
+    },
+    "security": {
+      "title": "Security",
+      "text": "Report a vulnerability in confidence to"
+    }
+  },
+  "agentWebapp": {
+    "open": "Agent web app"
+  },
+  "agentActions": {
+    "statusNames": {
+      "ok": "ok",
+      "warn": "warning",
+      "err": "error",
+      "running": "running"
+    },
+    "scheduled": "Run by the agent's scheduler",
+    "noLog": "The agent wrote no log line for this action."
+  },
+  "serviceActions": {
+    "title": "Actions",
+    "intro": "The actions the agents ran on the services: start, stop, sync… with their status and duration. Open one for its details and the lines the agent wrote. The action queue, in the top bar, lists instead what the collector asks the agents to do.",
+    "detail": {
+      "title": "Action",
+      "log": "Log",
+      "groups": {
+        "identity": "Action",
+        "run": "Run",
+        "ack": "Acknowledgement"
+      }
+    },
+    "fields": {
+      "id": "Record id",
+      "services.svcname": "Service",
+      "svc_id": "Service id",
+      "nodes.nodename": "Node",
+      "node_id": "Node id",
+      "action": "Action",
+      "rid": "Resources",
+      "subset": "Subset",
+      "status": "Status",
+      "begin": "Begin",
+      "end": "End",
+      "time": "Duration",
+      "cron": "Scheduled",
+      "sid": "Session id",
+      "pid": "Process id",
+      "command": "Command",
+      "origin": "Origin",
+      "version": "Agent version",
+      "ack": "Acknowledged",
+      "acked_by": "Acknowledged by",
+      "acked_date": "Acknowledged on",
+      "acked_comment": "Acknowledgement comment"
+    },
+    "actions": {
+      "open": "Actions",
+      "failure": "{{name}}: {{message}}",
+      "data": {
+        "acknowledge": {
+          "label": "Acknowledge",
+          "question_one": "Acknowledge this failed action? Its failure needs nothing more; it no longer counts in the action errors of its instance, nor in their alert.",
+          "question_other": "Acknowledge these {{count}} failed actions? Their failures need nothing more; they no longer count in the action errors of their instances, nor in their alerts.",
+          "comment": "Comment, for those who read the actions",
+          "confirm_one": "Acknowledge",
+          "confirm_other": "Acknowledge {{count}} actions",
+          "running": "Acknowledging…",
+          "done_one": "1 action acknowledged.",
+          "done_other": "{{count}} actions acknowledged.",
+          "description": "Acknowledge the failed actions: they no longer count among the errors to handle."
+        }
+      }
+    }
+  },
+  "requestDetail": {
+    "title": "Request",
+    "heading": "Request {{id}} · {{label}}",
+    "notFound": "This request does not exist, or you do not take part in it.",
+    "awaiting": "Awaiting",
+    "steps": "Steps",
+    "stepNumber": "Step {{index}}",
+    "current": "Current step",
+    "submitted": "Submitted by {{who}} on",
+    "assignedTo": "assigned to {{who}}",
+    "decision": "Decision",
+    "decided": "This step is already decided.",
+    "noSuccessor": "This step ends the request: there is no next step to decide.",
+    "notAssigned": "Awaiting the decision of {{who}}. Only them can decide on this step.",
+    "choose": "Choose the next step:",
+    "formUnavailable": "The {{name}} form does not exist or is not published to you.",
+    "submit": "Submit the decision",
+    "back": "Back to the choices",
+    "submittedDecision": "{{label}} submitted.",
+    "showLogs": "Show the logs",
+    "hideLogs": "Hide the logs",
+    "logsTitle": "Execution log of step {{index}}"
+  },
+  "safe": {
+    "title": "Safe",
+    "intro": "The files of the collector safe you may see: those you uploaded or that are published to one of your groups, all of them for a Manager. Service configurations and compliance rulesets reference them as safe://<id>, and the agents download them with their node credentials. Each version is a row; files are encrypted at rest when the collector is configured to.",
+    "fields": {
+      "id": "File id",
+      "uuid": "Stored name",
+      "name": "Name",
+      "size": "Size",
+      "md5": "MD5",
+      "sha256": "SHA-256",
+      "encrypted": "At rest",
+      "safe_team_publication": "Published to",
+      "safe_team_responsible": "Responsibles",
+      "uploader": "Uploader id",
+      "uploader_name": "Uploader",
+      "uploaded_from": "Uploaded from",
+      "uploaded_date": "Uploaded"
+    },
+    "encryption": {
+      "encrypted": "encrypted",
+      "plaintext": "plaintext"
+    },
+    "detail": {
+      "title": "Safe file",
+      "tabs": "Safe file data",
+      "notFound": "This file does not exist, or you may not see it.",
+      "groups": {
+        "file": "File",
+        "record": "Upload"
+      }
+    },
+    "actions": {
+      "download": "Download",
+      "newVersion": "Upload a new version"
+    },
+    "upload": {
+      "open": "Upload a file",
+      "title": "Upload a file to the safe",
+      "intro": "The file is published to and made the responsibility of your default group. Reference it as safe://<id> once uploaded.",
+      "file": "File",
+      "nameHint": "The name to tell the file by; the name of the uploaded file if left empty.",
+      "versionNameHint": "Left empty, the file keeps its name.",
+      "versionIntro": "The file keeps its id: the safe:// references get the new content. The current version stays in the history.",
+      "submit": "Upload",
+      "submitVersion": "Upload the new version",
+      "uploading": "Uploading…",
+      "noFile": "Choose a file to upload."
+    },
+    "content": {
+      "tab": "Content",
+      "notText": "This file is not text: download it to read it.",
+      "audited": "Each display of the content is written to the audit log."
+    },
+    "history": {
+      "tab": "History",
+      "empty": "No previous version."
+    },
+    "usage": {
+      "title": "Referenced by",
+      "none": "No service configuration or ruleset variable references this file.",
+      "service": "Service",
+      "variable": "Variable"
+    },
+    "delete": {
+      "question": "Delete {{name}} from the safe? Its content goes too; the services and rulesets referencing it will no longer get it. Its previous versions stay. This cannot be undone."
+    }
+  },
+  "assistant": {
+    "title": "AI assistant",
+    "newConversation": "New conversation",
+    "conversation": "Conversation with the assistant",
+    "name": "Assistant",
+    "you": "You:",
+    "empty": {
+      "title": "Ask about your estate",
+      "intro": "The assistant will answer from what you can see in the Collector: nodes, services, alerts, compliance and requests. It will never act without asking you first.",
+      "suggestions": "Questions to start with"
+    },
+    "suggestions": {
+      "servicesDown": "Which services are down right now?",
+      "criticalAlerts": "Summarize today's critical alerts",
+      "silentNodes": "Which nodes have not reported in the last hour?",
+      "compliance": "Which nodes fail their compliance checks?"
+    },
+    "composer": {
+      "label": "Message to the assistant",
+      "placeholder": "Ask about nodes, services, alerts…",
+      "send": "Send",
+      "scope": "Answers use only what you are allowed to see. Actions always ask for your confirmation.",
+      "keys": "Enter to send · Shift+Enter for a new line",
+      "stop": "Stop"
+    },
+    "conversations": "Conversations",
+    "noConversation": "No conversation yet.",
+    "untitled": "New conversation",
+    "deleteConversation": "Delete the conversation {{title}}",
+    "thinking": "Thinking…",
+    "tools": "Tools used",
+    "toolRunning": "running",
+    "toolDone": "done",
+    "toolFailed": "failed",
+    "unavailable": {
+      "disabled": "The AI assistant is not configured on this collector.",
+      "password_sign_in": "Sign in with single sign-on to use the assistant: it acts with your single sign-on identity.",
+      "token_unavailable": "Your single sign-on session holds no access token for the assistant: sign out and sign in again.",
+      "impersonating": "The assistant cannot be used while impersonating another user."
+    },
+    "errors": {
+      "token": "Your single sign-on session no longer holds an access token: sign out and sign in again.",
+      "unreachable": "The AI agent cannot be reached. Try again later.",
+      "stopped": "Stopped.",
+      "unknown": "The assistant could not answer.",
+      "cut": "The connection to the assistant was cut off: this answer is not kept. Ask again.",
+      "clientTools": "The assistant asked for actions of this interface, which it does not offer.",
+      "toolCallLimit": "The question needs more tool calls than the assistant runs in one answer: ask a narrower question.",
+      "timeout": "The assistant took too long to answer."
+    },
+    "confirmation": {
+      "label": "Action waiting for your decision",
+      "question": "The assistant wants to run: {{title}}. Approve?",
+      "destructive": "The assistant wants to run a destructive action: {{title}}. Approve?",
+      "approve": "Approve",
+      "reject": "Reject",
+      "noArguments": "No argument.",
+      "expires": "This request expires {{when}}.",
+      "expired": "This request has expired: the action did not run."
+    },
+    "feedback": {
+      "question": "Was this answer helpful?",
+      "up": "Helpful",
+      "down": "Not helpful",
+      "withdraw": "Withdraw the feedback",
+      "tellMore": "Tell us more",
+      "why": "What went wrong?",
+      "reasons": {
+        "not_answered": "It does not answer the question",
+        "missing_information": "Information is missing",
+        "incorrect_or_outdated": "It is incorrect or outdated",
+        "hard_to_understand": "It is hard to understand",
+        "action_not_done": "The expected action was not done"
+      },
+      "expected": "What did you expect?",
+      "count": "{{count}} / {{max}}",
+      "later": "Not now",
+      "send": "Send",
+      "privacy": "The feedback and a copy of this exchange are kept for review, without your identity.",
+      "sent": {
+        "rating": "Thanks for your feedback.",
+        "details": "Thanks, the details are sent.",
+        "withdrawn": "Feedback withdrawn."
+      },
+      "limit": "The assistant takes no more feedback for now.",
+      "expired": "This conversation has expired: its answers can no longer be rated.",
+      "failed": "The feedback could not be sent: {{message}}"
+    }
+  },
+  "checks": {
+    "title": "Checks",
+    "fields": {
+      "id": "Id",
+      "node_id": "Node id",
+      "nodes.nodename": "Node",
+      "svc_id": "Service id",
+      "services.svcname": "Service",
+      "chk_type": "Type",
+      "chk_instance": "Instance",
+      "chk_value": "Value",
+      "chk_low": "Low threshold",
+      "chk_high": "High threshold",
+      "chk_err": "State",
+      "chk_threshold_provider": "Threshold provider",
+      "chk_created": "Created",
+      "chk_updated": "Updated",
+      "thresholds": "Thresholds"
+    },
+    "detail": {
+      "title": "Check",
+      "groups": {
+        "check": "Check",
+        "thresholds": "Thresholds",
+        "object": "Node and service"
+      }
+    },
+    "actions": {
+      "open": "Actions",
+      "failure": "{{name}}: {{message}}",
+      "data": {
+        "setThresholds": {
+          "label": "Set thresholds",
+          "question_one": "Set the thresholds of this check? They take precedence over the contextual and default ones; a threshold left empty keeps its current value.",
+          "question_other": "Set the thresholds of these {{count}} checks? They take precedence over the contextual and default ones; a threshold left empty keeps the current value of each check.",
+          "fields": {
+            "chk_low": "Low",
+            "chk_high": "High"
+          },
+          "confirm_one": "Set",
+          "confirm_other": "Set on {{count}} checks",
+          "running": "Setting…",
+          "done_one": "Thresholds set on 1 check.",
+          "done_other": "Thresholds set on {{count}} checks.",
+          "description": "Set the alert thresholds of the selected checks."
+        },
+        "resetThresholds": {
+          "label": "Reset thresholds",
+          "question_one": "Reset the thresholds of this check? It takes its contextual or default thresholds again.",
+          "question_other": "Reset the thresholds of these {{count}} checks? They take their contextual or default thresholds again.",
+          "confirm_one": "Reset",
+          "confirm_other": "Reset {{count}} checks",
+          "running": "Resetting…",
+          "done_one": "Thresholds of 1 check reset.",
+          "done_other": "Thresholds of {{count}} checks reset.",
+          "description": "Go back to the default thresholds of the selected checks."
+        },
+        "delete": {
+          "label": "Delete",
+          "question_one": "Delete this check and its alerts? The agent reports it again at its next check run if the check still exists. This cannot be undone.",
+          "question_other": "Delete these {{count}} checks and their alerts? The agents report them again at their next check run if the checks still exist. This cannot be undone.",
+          "confirm_one": "Delete the check",
+          "confirm_other": "Delete {{count}} checks",
+          "running": "Deleting…",
+          "done_one": "1 check deleted.",
+          "done_other": "{{count}} checks deleted.",
+          "description": "Remove the checks from the collector; the agent sends them again with its next check run."
+        }
+      }
+    }
+  },
+  "checkDefaults": {
+    "title": "Check defaults",
+    "intro": "The thresholds of a check type. A check takes, among the defaults of its type whose instance pattern matches its instance, the one of the highest priority, then of the longest pattern, unless thresholds set on it or contextual ones apply.",
+    "fields": {
+      "id": "Id",
+      "chk_type": "Type",
+      "chk_inst": "Instance pattern",
+      "chk_prio": "Priority",
+      "chk_low": "Low threshold",
+      "chk_high": "High threshold"
+    },
+    "create": {
+      "open": "New defaults",
+      "title": "New check defaults",
+      "intro": "Default thresholds of a check type, for the instances the pattern matches. The checks of the type take them in the background.",
+      "submit": "Add the defaults",
+      "submitting": "Adding…",
+      "hints": {
+        "chk_type": "The check type, as the agents report it: fs_u, mpath, eth…",
+        "chk_inst": "Regular expression matching the whole instance; empty for every instance.",
+        "chk_prio": "Among the defaults matching a check, the highest priority wins.",
+        "chk_low": "Empty for no low threshold.",
+        "chk_high": "Empty for no high threshold."
+      },
+      "invalid": {
+        "chk_type": "Required.",
+        "chk_inst": "Not a valid regular expression.",
+        "chk_prio": "An integer.",
+        "chk_low": "An integer, not above the high threshold.",
+        "chk_high": "An integer, not below the low threshold."
+      }
+    },
+    "detail": {
+      "title": "Check defaults",
+      "editHint": "The checks of the type take the change in the background.",
+      "deleteQuestion": "Delete these defaults? The checks of the type take the next matching defaults, or none.",
+      "groups": {
+        "scope": "Scope",
+        "thresholds": "Thresholds"
+      }
+    },
+    "actions": {
+      "open": "Actions",
+      "failure": "{{name}}: {{message}}",
+      "data": {
+        "delete": {
+          "label": "Delete",
+          "question_one": "Delete these defaults? The checks of the type take the next matching defaults, or none, in the background. This cannot be undone.",
+          "question_other": "Delete these {{count}} defaults? The checks of their types take the next matching defaults, or none, in the background. This cannot be undone.",
+          "confirm_one": "Delete the defaults",
+          "confirm_other": "Delete {{count}} defaults",
+          "running": "Deleting…",
+          "done_one": "1 default deleted.",
+          "done_other": "{{count}} defaults deleted."
+        }
+      }
+    }
+  },
+  "checkContextual": {
+    "title": "Contextual thresholds",
+    "intro": "The thresholds of the checks of a type and of the instances a pattern matches, on the nodes and services a filterset selects. They take precedence over the defaults; thresholds set on a check over them.",
+    "fields": {
+      "id": "Id",
+      "fset_id": "Filterset id",
+      "gen_filtersets.fset_name": "Filterset",
+      "chk_type": "Type",
+      "chk_instance": "Instance pattern",
+      "chk_low": "Low threshold",
+      "chk_high": "High threshold"
+    },
+    "create": {
+      "open": "New thresholds",
+      "title": "New contextual thresholds",
+      "intro": "Thresholds of the checks of a type on the nodes and services a filterset selects. The checks of the type take them in the background.",
+      "submit": "Add the thresholds",
+      "submitting": "Adding…",
+      "filtersetPlaceholder": "Choose a filterset",
+      "hints": {
+        "fset_id": "The nodes, and services, the thresholds apply to.",
+        "chk_type": "The check type, as the agents report it: fs_u, mpath, eth…",
+        "chk_instance": "Regular expression found anywhere in the instance: ^/$ for the root filesystem alone.",
+        "chk_low": "Required.",
+        "chk_high": "Required."
+      },
+      "invalid": {
+        "chk_type": "Required.",
+        "chk_instance": "Not a valid regular expression.",
+        "chk_low": "An integer, not above the high threshold.",
+        "chk_high": "An integer, not below the low threshold."
+      }
+    },
+    "detail": {
+      "title": "Contextual thresholds",
+      "editHint": "The checks of the type take the change in the background. To change the filterset, add new thresholds.",
+      "deleteQuestion": "Delete these thresholds? The checks they apply to take the defaults again.",
+      "groups": {
+        "scope": "Scope",
+        "thresholds": "Thresholds"
+      }
+    },
+    "actions": {
+      "open": "Actions",
+      "failure": "{{name}}: {{message}}",
+      "data": {
+        "delete": {
+          "label": "Delete",
+          "question_one": "Delete these contextual thresholds? The checks they apply to take the defaults again, in the background. This cannot be undone.",
+          "question_other": "Delete these {{count}} contextual thresholds? The checks they apply to take the defaults again, in the background. This cannot be undone.",
+          "confirm_one": "Delete the thresholds",
+          "confirm_other": "Delete {{count}} thresholds",
+          "running": "Deleting…",
+          "done_one": "1 contextual threshold deleted.",
+          "done_other": "{{count}} contextual thresholds deleted."
+        }
+      }
+    }
+  },
+  "complianceAttachments": {
+    "title": "Attachments",
+    "intro": "The modulesets and rulesets attached to the nodes and services, one row per attachment; a node or a service without any has a row of its own, with no moduleset or ruleset. Filter the rows, select them, then attach or detach from the Actions menu: the collector checks each pair as when attaching one by one, a refused pair does not stop the others.",
+    "nothingAttached": "nothing attached on this row",
+    "tables": {
+      "label": "Attachments of",
+      "modulesets_nodes": "Node modulesets",
+      "rulesets_nodes": "Node rulesets",
+      "modulesets_services": "Service modulesets",
+      "rulesets_services": "Service rulesets"
+    },
+    "fields": {
+      "moduleset": "Moduleset",
+      "ruleset": "Ruleset",
+      "slave": "Encapsulated"
+    },
+    "actions": {
+      "open": "Actions",
+      "failure": "{{name}}: {{message}}",
+      "data": {
+        "attach": {
+          "label": "Attach…",
+          "question_one": "Attach to the target of this row:",
+          "question_other": "Attach to the targets of these {{count}} rows, each once:",
+          "choice": "Moduleset or ruleset",
+          "confirm_one": "Attach",
+          "confirm_other": "Attach",
+          "running": "Attaching…",
+          "done_one": "{{choice}} attached to 1 target.",
+          "done_other": "{{choice}} attached to {{count}} targets.",
+          "description": "Attach modulesets or rulesets to the selected objects."
+        },
+        "detach": {
+          "label": "Detach the selected attachments",
+          "question_one": "Detach the moduleset or ruleset of this row? Its modules stop being checked and fixed there.",
+          "question_other": "Detach the modulesets and rulesets of these {{count}} rows? Their modules stop being checked and fixed there.",
+          "confirm_one": "Detach",
+          "confirm_other": "Detach {{count}}",
+          "running": "Detaching…",
+          "done_one": "1 attachment removed.",
+          "done_other": "{{count}} attachments removed.",
+          "description": "Detach the modulesets or rulesets of the selected attachments."
+        }
+      }
+    }
+  },
+  "orchestrations": {
+    "title": "Workflows",
+    "intro": "Plans of agent actions run step after step on services, instances, nodes or clusters, picked one by one or matched by a filterset. A step starts once every target of the previous one succeeded; the first failure stops the run.",
+    "new": "New workflow",
+    "newTitle": "New workflow",
+    "neverRun": "never run",
+    "unsaved": "unsaved changes",
+    "save": "Save",
+    "saving": "Saving…",
+    "saveBeforeRun": "Save the changes before running",
+    "runButton": "Run…",
+    "delete": "Delete",
+    "deleteQuestion": "Delete the workflow {{name}}? Its runs stay.",
+    "addStep": "Add a step",
+    "failureRule": "A step fails when one of its targets fails, is refused, is cancelled or exceeds its time limit. The run then stops: the next steps do not run.",
+    "fields": {
+      "name": "Name",
+      "description": "Description"
+    },
+    "kinds": {
+      "service_one": "service",
+      "service_other": "services",
+      "instance_one": "instance",
+      "instance_other": "instances",
+      "node_one": "node",
+      "node_other": "nodes",
+      "cluster_one": "cluster",
+      "cluster_other": "clusters"
+    },
+    "status": {
+      "running": "running",
+      "succeeded": "succeeded",
+      "failed": "failed",
+      "stopped": "stopped",
+      "waiting": "waiting",
+      "not_run": "not run",
+      "queued": "queued",
+      "ok": "ok",
+      "refused": "refused",
+      "timed_out": "timed out",
+      "cancelled": "cancelled",
+      "acknowledged": "acknowledged"
+    },
+    "step": {
+      "name": "Name of step {{n}}",
+      "namePlaceholder": "Step {{n}}",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "remove": "Remove the step",
+      "kind": "Acts on",
+      "action": "Action",
+      "chooseAction": "Choose an action",
+      "targets": "Targets",
+      "targetsMode": "How the targets are chosen",
+      "modes": {
+        "pick": "Pick",
+        "filterset": "Filterset",
+        "sameAs": "Same as a step"
+      },
+      "addTarget": "Add a {{kind}}",
+      "removeTarget": "Remove {{name}}",
+      "noMatch": "No match",
+      "filterset": "Filterset",
+      "chooseFilterset": "Choose a filterset",
+      "sameAsStep": "Step whose targets to take",
+      "sameAsOption": "Step {{n}} · {{name}}",
+      "matches_one": "{{count}} target now",
+      "matches_other": "{{count}} targets now",
+      "rid": "Resources",
+      "ridPlaceholder": "all",
+      "ridHint": "empty for all, or rids separated by commas",
+      "pace": "Pace",
+      "paces": {
+        "all": "All at once",
+        "one": "One by one",
+        "batch": "By batches"
+      },
+      "batchUnit": "at a time",
+      "timeout": "Time limit",
+      "timeoutHint": "minutes; 0 for none. A target still running then fails the step."
+    },
+    "check": {
+      "title": "Step {{n}} · targets now",
+      "checking": "checking…",
+      "none": "Nothing to check yet.",
+      "ready_one": "{{count}} ready",
+      "ready_other": "{{count}} ready",
+      "refused_one": "{{count}} would be refused",
+      "refused_other": "{{count}} would be refused",
+      "targetReady": "ready",
+      "targetRefused": "refused",
+      "problems_one": "{{count}} problem in the plan: a run would fail.",
+      "problems_other": "{{count}} problems in the plan: a run would fail.",
+      "hint": "Checked as the action queue will at run time. A filterset is resolved again when the run starts, and its targets kept for the whole run."
+    },
+    "confirm": {
+      "title": "Run {{name}}",
+      "summary_one": "{{steps}}, {{count}} action in all, one step after the other:",
+      "summary_other": "{{steps}}, {{count}} actions in all, one step after the other:",
+      "targets_one": "{{count}} target",
+      "targets_other": "{{count}} targets",
+      "disruptive": "interrupts what runs",
+      "rule": "The run stops at the first step that fails: the next ones do not run.",
+      "typeName": "Type {{name}} to confirm",
+      "start": "Start the run",
+      "starting": "Starting…",
+      "again_one": "{{count}} target again, of {{total}}",
+      "again_other": "{{count}} targets again, of {{total}}",
+      "resumeTitle": "Resume {{name}} from step {{n}}",
+      "resumeSummary_one": "{{steps}}, {{count}} action in all, with the targets resolved when the run started:",
+      "resumeSummary_other": "{{steps}}, {{count}} actions in all, with the targets resolved when the run started:",
+      "resume": "Resume the run",
+      "resuming": "Resuming…",
+      "continueTitle": "Acknowledge the failure of step {{n}} · {{name}}",
+      "continueSummary_one": "Then {{steps}} to run, {{count}} action in all, with the targets resolved when the run started:",
+      "continueSummary_other": "Then {{steps}} to run, {{count}} actions in all, with the targets resolved when the run started:",
+      "continueLast": "It was the last step: the run ends as succeeded, the failure acknowledged.",
+      "continueComment": "Why go on past this step? (required)",
+      "continue": "Acknowledge and continue",
+      "continuing": "Continuing…",
+      "continueTitleStopped": "Acknowledge the stop at step {{n}} · {{name}}",
+      "steps_one": "{{count}} step",
+      "steps_other": "{{count}} steps"
+    },
+    "runs": {
+      "title": "Runs",
+      "recent": "Recent runs",
+      "status": "Status",
+      "duration": "Duration"
+    },
+    "run": {
+      "stepOf": "step {{n}} of {{count}}",
+      "startedBy": "started by {{by}}",
+      "stop": "Stop the run",
+      "stopping": "Stopping…",
+      "stopQuestion": "Stop this run?",
+      "stopDetails": "The actions still waiting in the queue are cancelled; those an agent already runs finish, and their results are kept.",
+      "again": "Run again",
+      "resume": "Resume from step {{n}}",
+      "resumeWait": "An action still runs: wait for its end",
+      "failedAt": "Stopped at step {{n}}:",
+      "stoppedAt": "Stopped during step {{n}}:",
+      "notRun_one": "Step {{steps}} did not run.",
+      "notRun_other": "Steps {{steps}} did not run.",
+      "stillRunning": "An action still runs on an agent: its result will be recorded.",
+      "stepLabel": "Step {{n}}",
+      "okOf": "{{ok}} of {{count}} ok",
+      "target": "Target",
+      "ret": "Return",
+      "output": "Output",
+      "detailsTitle": "Step {{n}} · {{target}}",
+      "action": "Action",
+      "queued": "Queued",
+      "ended": "Ended",
+      "continue": "Acknowledge and continue",
+      "continueHint": "Accept the outcome of this step, with a comment, and run the next steps",
+      "acknowledgedBy": "Acknowledged by {{by}}",
+      "cancel": "Cancel the run",
+      "cancelling": "Cancelling…",
+      "cancelQuestion": "Cancel this run for good?",
+      "cancelRunningDetails": "It stops as with Stop, and can no longer be resumed nor continued: the actions still waiting in the queue are cancelled, those an agent already runs finish and their results are kept.",
+      "cancelDetails": "It can no longer be resumed nor continued. To run the workflow again, start a new run.",
+      "cancelledAt": "Cancelled at step {{n}}:"
+    },
+    "columns": {
+      "name": "Name",
+      "description": "Description",
+      "steps": "Steps",
+      "step_count": "Step count",
+      "last_run_status": "Last run",
+      "last_run_started": "Last run started",
+      "run_count": "Runs",
+      "created": "Created",
+      "updated": "Changed",
+      "updated_by": "Changed by",
+      "id": "Id"
+    },
+    "runColumns": {
+      "id": "#",
+      "name": "Workflow",
+      "status": "Status",
+      "steps_done": "Steps done",
+      "step_count": "Step count",
+      "current_step": "Current step",
+      "started": "Started",
+      "started_by": "Started by",
+      "ended": "Ended",
+      "duration": "Duration",
+      "message": "Message",
+      "orchestration_id": "Workflow id"
+    }
+  },
+  "notes": {
+    "tab": "Notes",
+    "description": "Notes on this object, kept by its teams: contacts, procedures, known issues",
+    "none_node": "No notes on this node yet.",
+    "none_service": "No notes on this service yet.",
+    "purpose": "Notes keep what the collector cannot know: who to call, how to restart it, the known issues and the workarounds. They are written in Markdown, and every save is kept as a revision.",
+    "readOnly": "The teams responsible for its application, and the Managers, can write them.",
+    "lastEdited": "Last edited by {{author}}",
+    "pastRevision": "Revision by {{author}}",
+    "unknownAuthor": "an unknown user",
+    "history_one": "History ({{count}})",
+    "history_other": "History ({{count}})",
+    "historyLabel": "Revisions of the notes, the latest first",
+    "latest": "latest",
+    "older_one": "and {{count}} older revision",
+    "older_other": "and {{count}} older revisions",
+    "restore": "Restore this revision…",
+    "restoredNote": "Restored the revision of {{date}}",
+    "backToLatest": "Back to the latest",
+    "emptyRevision": "Empty notes.",
+    "write": "Write notes",
+    "edit": "Edit",
+    "writeTab": "Write",
+    "preview": "Preview",
+    "editorView": "Editor view",
+    "signature": "Insert signature",
+    "bodyLabel": "Notes, in Markdown",
+    "syntaxHint": "Markdown: # Heading, **bold**, *italic*, - list, 1. list, `code`, [link](https://…), | tables |. Ctrl+Enter saves.",
+    "changeNote": "Change note",
+    "changeNotePlaceholder": "What changed, in a few words (optional)",
+    "tooLong": "The notes take {{bytes}} bytes, more than the {{max}} a revision holds.",
+    "conflict": "Saved meanwhile by {{author}}",
+    "conflictHelp": "Saving would replace their version with your text, which is kept here. To merge both, copy your text, cancel, and read theirs.",
+    "overwrite": "Overwrite with my text",
+    "save": "Save",
+    "saving": "Saving…",
+    "unchanged": "Nothing changed"
+  },
+  "logLines": {
+    "search": "Search the lines",
+    "levels": "Levels",
+    "allLevels": "all",
+    "level": {
+      "error": "Error",
+      "warn": "Warning",
+      "info": "Info",
+      "debug": "Debug"
+    },
+    "filtered": "Filtered",
+    "clearFilters": "Clear the filters",
+    "count": "{{shown}} / {{total}} lines",
+    "download": "Download the lines shown",
+    "lines": "Log lines",
+    "noMatch": "No line matches.",
+    "showInContext": "Show this line among the others"
+  },
+  "formConnectors": {
+    "title": "Form connectors",
+    "new": "New connector",
+    "intro": "The external APIs the forms call through the collector, never from the browser: the candidates of their inputs and their rest outputs. A form names a connector in its Connector key, with a path relative to its base URL in Function. Only the groups listed here may use a connector, through the forms they are responsible for.",
+    "empty": "No connector yet.",
+    "mtls": "+ client certificate",
+    "anyPath": "any path",
+    "noGroup": "no group: no form may use it",
+    "fields": {
+      "name": "Name",
+      "description": "Description",
+      "base_url": "Base URL",
+      "methods": "Methods allowed",
+      "paths": "Paths allowed",
+      "networks": "Private networks allowed",
+      "timeout": "Timeout (seconds)",
+      "max_kib": "Largest answer (KiB)",
+      "headers": "Headers",
+      "auth_type": "Authentication",
+      "username": "Username",
+      "api_key_in": "Key sent in",
+      "api_key_name": "Header or parameter name",
+      "token_url": "Token URL",
+      "client_id": "Client ID",
+      "auth_style": "Client credentials sent in",
+      "scopes": "Scopes",
+      "audience": "Audience",
+      "ca_bundle": "Certificate authorities",
+      "client_cert": "Client certificate",
+      "server_name": "Server name",
+      "groups": "Groups allowed",
+      "updated": "Updated"
+    },
+    "auth": {
+      "none": "None",
+      "basic": "Basic (username and password)",
+      "bearer": "Bearer token",
+      "api_key": "API key",
+      "oauth2_client_credentials": "OAuth 2 client credentials"
+    },
+    "apiKeyIn": {
+      "header": "a header",
+      "query": "a query parameter"
+    },
+    "authStyle": {
+      "header": "the Authorization header",
+      "params": "the request body"
+    },
+    "secret": {
+      "password": "Password",
+      "token": "Token",
+      "api_key": "API key",
+      "client_secret": "Client secret",
+      "client_key": "Client certificate key",
+      "set": "set",
+      "unset": "not set",
+      "removed": "removed when saving",
+      "keep": "Keep it",
+      "remove": "Remove",
+      "keepHint": "Leave empty to keep the one set"
+    },
+    "form": {
+      "editTitle": "Connector {{name}}",
+      "createTitle": "New connector",
+      "general": "General",
+      "nameHint": "The name the forms give in their Connector key: letters, digits, \".\", \"_\" or \"-\".",
+      "baseUrlHint": "The paths of the forms are relative to it. HTTPS is required as soon as the connector sends credentials.",
+      "calls": "What the forms may call",
+      "pathsHint": "One path prefix per line, \"/servers\" allowing \"/servers/12\". None: any path under the base URL.",
+      "networksHint": "The collector refuses the loopback, private and reserved addresses, and always the link-local ones (cloud metadata). One CIDR prefix per line lets the host resolve to one of them, an internal CMDB say.",
+      "headersHint": "\"Name: value\", one per line, sent with each call. No credentials here: they go in the authentication.",
+      "auth": "Authentication",
+      "scopesHint": "Separated by spaces.",
+      "tls": "TLS",
+      "caHint": "PEM certificates trusted instead of the system ones, for a private authority.",
+      "clientCertHint": "PEM certificate of a mutual TLS; its key is a secret, below.",
+      "groupsHint": "A form may use the connector when one of the groups responsible for it is listed here.",
+      "removeGroup": "Remove {{group}}",
+      "addGroup": "Add a group",
+      "saving": "Saving…",
+      "saveEdit": "Save",
+      "saveCreate": "Create",
+      "saved": "Saved",
+      "delete": "Delete the connector",
+      "deleteQuestion": "Delete the connector {{name}}? The forms naming it will fail to call it.",
+      "deleteConfirm": "Delete",
+      "deleting": "Deleting…"
+    },
+    "test": {
+      "title": "Test a call",
+      "intro": "Calls the API once, as a form would, with the settings saved: save your changes first.",
+      "method": "Method",
+      "path": "Path",
+      "query": "Query, \"name=value\" per line",
+      "run": "Call",
+      "running": "Calling…",
+      "failed": "No answer: {{message}}",
+      "answered": "Answered {{status}} in {{ms}} ms"
+    }
+  },
+  "compModules": {
+    "title": "Compliance modules",
+    "new": "New module",
+    "intro": "The scripts the agents run to check and fix a node, named by the modulesets. oc3 keeps them in a git repository: each creation is a commit, with its author.",
+    "empty": "No module yet.",
+    "distribution": "The agents get the modules as one archive: set node.repocomp to {{url}} for om node updatecomp. The archive is served to authenticated nodes only.",
+    "fields": {
+      "name": "Name",
+      "order": "Order",
+      "kind": "Kind",
+      "runnable": "Runnable",
+      "changed": "Last change",
+      "path": "Path",
+      "message": "Commit message",
+      "entry": "Runs",
+      "changed_date": "Last change",
+      "changed_author": "Author",
+      "changed_subject": "Message",
+      "changed_id": "Commit"
+    },
+    "kind": {
+      "script": "Script",
+      "directory": "Directory"
+    },
+    "runs": "runs {{entry}}",
+    "runnableYes": "Yes",
+    "notExecutable": "Not executable",
+    "noEntry": "No main to run",
+    "modulesets": "Modulesets naming it",
+    "noModuleset": "No moduleset names it.",
+    "files": "Files",
+    "size_one": "{{count}} byte",
+    "size_other": "{{count}} bytes",
+    "executable": "executable",
+    "script": "Script",
+    "binary": "Binary file, not shown.",
+    "truncated": "Only the first MiB is shown.",
+    "history": {
+      "title_one": "History ({{count}} version)",
+      "title_other": "History ({{count}} versions)",
+      "current": "current version",
+      "compare": "Compare with the current version",
+      "hideCompare": "Hide the comparison",
+      "restore": "Restore this version",
+      "restoreQuestion": "Restore the module as it was in {{version}}? A new commit, the history keeps every version.",
+      "restoreConfirm": "Restore",
+      "same": "No difference with the current version.",
+      "since": "Changes from {{version}} to the current version:",
+      "status": {
+        "added": "added since",
+        "removed": "removed since",
+        "modified": "modified"
+      },
+      "mode": "{{from}} → {{to}}",
+      "notExecutable": "not executable",
+      "binary": "Binary file: its content is not compared.",
+      "added": "added",
+      "removed": "removed",
+      "showAll_one": "Show the {{count}} line",
+      "showAll_other": "Show all {{count}} lines"
+    },
+    "form": {
+      "title": "New compliance module",
+      "pathHint": "Recorded as {{path}} in the compliance directory of the agents.",
+      "scriptHint": "Starts with #! naming its interpreter. Exit 0: compliant or fixed; 1: not; 2: not applicable.",
+      "messagePlaceholder": "add {{name}}",
+      "badName": "The name starts with a letter, followed by letters, digits and _.+- (64 at most).",
+      "badOrder": "The order is a number from 0 to {{max}}.",
+      "noShebang": "The script must start with #! naming its interpreter.",
+      "create": "Create the module",
+      "creating": "Creating…",
+      "language": "Template",
+      "replaceTemplate": "The script was edited: replace it with the {{language}} template",
+      "templateHint": "Choosing another template replaces the script as long as it is not edited.",
+      "kindHint": {
+        "script": "One executable file, written here from a template.",
+        "directory": "A folder: scripts/main, run by the agent, with any other file next to it."
+      },
+      "source": "Start from",
+      "sources": {
+        "skeleton": "A skeleton in a language",
+        "archive": "An archive of the files (.tar.gz or .zip)"
+      },
+      "skeletonHint": "These files are created; edit them in the panel afterwards.",
+      "archive": "Archive",
+      "archiveHint": "An archive holding one folder at its root is read from inside it. Links and devices are refused.",
+      "noArchive": "Choose the archive of the files."
+    },
+    "languages": {
+      "sh": "POSIX sh",
+      "bash": "Bash",
+      "python": "Python 3",
+      "perl": "Perl"
+    },
+    "twoEntries": "main and scripts/main both exist",
+    "edit": {
+      "reload": "Reload the module",
+      "uploadMessage": "upload {{path}}",
+      "noFile": "No file chosen.",
+      "download": "Download as archive",
+      "replace": "Replace from an archive",
+      "convert": "Convert to a directory",
+      "convertQuestion": "Turn the script into scripts/main of a directory module?",
+      "convertConfirm": "Convert",
+      "saving": "Saving…",
+      "replaceQuestion": "Replace every file of the module with those of {{file}}?",
+      "replaceSure": "Every file of the module is replaced.",
+      "replaceConfirm": "Replace the files",
+      "entry": "entry",
+      "rename": "Rename",
+      "renameTo": "New path of {{path}}",
+      "delete": "Delete",
+      "deleteQuestion": "Delete {{path}}?",
+      "newFile": "New file",
+      "newPath": "Path of the new file",
+      "write": "Write it",
+      "folder": "Upload into the folder",
+      "upload": "Upload files",
+      "edit": "Edit",
+      "entryExecutable": "the file the agent runs stays executable",
+      "messagePlaceholder": "update {{path}}",
+      "save": "Save",
+      "makeExecutable": "Make executable",
+      "makeNotExecutable": "Make not executable"
+    },
+    "props": {
+      "edit": "Edit name and order",
+      "entry": "Entry: {{from}} becomes {{to}}.",
+      "modulesetsFollow_one": "The moduleset naming it will name it {{name}}: {{modulesets}}.",
+      "modulesetsFollow_other": "The {{count}} modulesets naming it will name it {{name}}: {{modulesets}}.",
+      "messagePlaceholder": "rename {{from}} to {{to}}"
+    }
+  },
+  "quotas": {
+    "title": "Disk quotas",
+    "intro": "The space each application code may use in a disk group of a storage array, how much of it its disks use, and what each disk group can still reserve. A StorageManager adds, changes and deletes them.",
+    "fields": {
+      "id": "Id",
+      "array_name": "Array",
+      "array_model": "Array model",
+      "dg_name": "Disk group",
+      "dg_size": "Disk group size",
+      "dg_reserved": "Reserved",
+      "dg_reservable": "Reservable",
+      "dg_used": "Disk group used",
+      "dg_free": "Disk group free",
+      "app": "App",
+      "quota": "Quota",
+      "quota_used": "Used",
+      "array_id": "Array id",
+      "dg_id": "Disk group id",
+      "app_id": "App id"
+    },
+    "usage": {
+      "near": "close to the quota",
+      "over": "over the quota",
+      "of": "{{used}} of {{quota}}"
+    },
+    "size": {
+      "unit": "Unit",
+      "invalid": "Enter a positive number."
+    },
+    "detail": {
+      "title": "Quota",
+      "name": "{{app}} on {{array}} / {{dg}}",
+      "missing": "This quota does not exist, or is out of your reach.",
+      "diskGroup": "Disk group",
+      "overReserved": "{{size}} more reserved than its size"
+    },
+    "edit": {
+      "title": "Change the quota",
+      "from": "From {{from}} to {{to}}",
+      "save": "Save",
+      "saving": "Saving…",
+      "done": "Quota of {{app}} set to {{size}}."
+    },
+    "delete": {
+      "label": "Delete the quota",
+      "question": "Delete the quota of {{app}} on {{array}} / {{dg}}?"
+    },
+    "create": {
+      "open": "New quota",
+      "title": "New quota",
+      "pickArray": "Choose an array",
+      "pickDiskGroup": "Choose a disk group",
+      "pickApp": "Choose an app",
+      "dgSummary": "{{size}}, {{reserved}} reserved, {{reservable}} reservable",
+      "replaces": "{{app}} already has a quota of {{quota}} here: it will be replaced.",
+      "overReservable": "More than the {{reservable}} the disk group can still reserve: it will be over-reserved.",
+      "submit": "Add the quota",
+      "replace": "Replace the quota",
+      "submitting": "Saving…"
+    }
+  },
+  "saves": {
+    "title": "Backups",
+    "intro": "The backups the backup servers index: what was saved, from which node or service, by which server and group, how large, when, and until when it is kept. The rankings sum their size; a line filters the list.",
+    "fields": {
+      "id": "Id",
+      "save_server": "Server",
+      "save_id": "Backup id",
+      "save_app": "App",
+      "node_id": "Node id",
+      "nodename": "Node",
+      "svc_id": "Service id",
+      "svcname": "Service",
+      "save_name": "Name",
+      "save_group": "Group",
+      "save_level": "Level",
+      "save_size": "Size",
+      "save_volume": "Volume",
+      "save_date": "Date",
+      "save_retention": "Retention"
+    },
+    "charts": {
+      "byApp": "Size by app",
+      "byObject": "Size by service or node",
+      "byServer": "Size by server",
+      "byGroup": "Size by group",
+      "total_one": "{{size}} in {{count}} backup",
+      "total_other": "{{size}} in {{count}} backups",
+      "backups_one": "{{count}} backup",
+      "backups_other": "{{count}} backups",
+      "none": "No backup.",
+      "unknown": "unknown"
+    },
+    "detail": {
+      "title": "Backup",
+      "groups": {
+        "backup": "Backup",
+        "location": "Location",
+        "owner": "Owner"
+      }
+    }
   }
 }

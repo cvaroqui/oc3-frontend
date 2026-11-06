@@ -1,41 +1,44 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import {
   ActionsMenu,
   type ActionEntry,
   type ActionTarget,
   type DataActionEntry,
 } from "@/components/opensvc/ActionsMenu";
+import { inBatches } from "@/lib/api/batch";
 import { api } from "@/lib/api/client";
-import { problemText } from "@/lib/api/problem";
 import { fromInstanceId } from "./instance-id";
 
 /**
  * Agent actions of an instance, the instance entries of the historical collector
- * (`on_services_instances`): start, stop and restart at the top, then placement
- * (switch, takeover, giveback), replication, freeze and thaw, and in submenus the
- * maintenance of the instance, the compliance runs on the modules attached to the
- * service, and the inventory pushes.
+ * (`on_services_instances`). As on the node, one submenu per kind of effect, from
+ * the harmless to the disruptive: what refreshes the collector's data; the
+ * compliance runs on the modules attached to the service; orchestration, freezing
+ * it then clearing or aborting what it runs; the replication to the remotes; the
+ * maintenance of the instance; placement; then, apart, the start, the restart and
+ * the stop. Within a submenu the reversible entries come first.
  */
 const INSTANCE_ACTIONS: readonly ActionEntry[] = [
-  { action: "start" },
-  { action: "stop" },
-  { action: "restart" },
-  { action: "switch", group: "placement", separatorBefore: true },
-  { action: "takeover", group: "placement" },
-  { action: "giveback", group: "placement" },
+  { action: "push config", group: "refresh" },
+  { action: "push resinfo", group: "refresh" },
+  { action: "compliance_check", group: "compliance" },
+  { action: "compliance_fix", group: "compliance" },
+  { action: "freeze", group: "orchestration" },
+  { action: "thaw", group: "orchestration" },
+  { action: "clear", group: "orchestration", separatorBefore: true },
+  { action: "abort", group: "orchestration" },
   { action: "syncall", group: "sync" },
   { action: "syncnodes", group: "sync" },
   { action: "syncdrp", group: "sync" },
-  { action: "freeze", separatorBefore: true },
-  { action: "thaw" },
-  { action: "enable", group: "maintenance", separatorBefore: true },
-  { action: "disable", group: "maintenance" },
-  { action: "abort", group: "maintenance" },
-  { action: "clear", group: "maintenance" },
-  { action: "compliance_check", group: "compliance" },
-  { action: "compliance_fix", group: "compliance" },
-  { action: "push config", group: "inventory" },
-  { action: "push resinfo", group: "inventory" },
+  { action: "enable", group: "maintenance" },
+  { action: "disable", group: "maintenance", separatorBefore: true },
+  { action: "switch", group: "placement" },
+  { action: "takeover", group: "placement" },
+  { action: "giveback", group: "placement" },
+  { action: "start", group: "startStop", separatorBefore: true },
+  { action: "restart", group: "startStop", separatorBefore: true },
+  { action: "stop", group: "startStop" },
 ];
 
 /**
@@ -59,7 +62,15 @@ export function InstanceActionsMenu({
   /** Ids of the instances deleted, as given in `instances`, containers included. */
   onDeleted?: (ids: string[]) => void;
 }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
+  // A batch answer as the report wants it: the objects done, and why the others failed.
+  const report = (results: { item: ActionTarget; ok: boolean; message: string }[]) => ({
+    done: results.flatMap((r) => (r.ok ? [r.item] : [])),
+    failures: results.flatMap((r) =>
+      r.ok ? [] : [t("instances.actions.failure", { name: r.item.name, message: r.message })],
+    ),
+  });
   const targets = [
     ...new Map(
       instances.map((target) => {
@@ -84,13 +95,23 @@ export function InstanceActionsMenu({
     {
       key: "delete",
       privileges: [],
-      run: async (target) => {
-        const key = fromInstanceId(target.id);
-        if (key === null) return "invalid instance id";
-        const { error } = await api.DELETE("/services/{svc_id}/instances/{node_id}", {
-          params: { path: { svc_id: key.svcId, node_id: key.nodeId } },
+      runAll: async (targets) => {
+        const valid = targets.flatMap((target) => {
+          const key = fromInstanceId(target.id);
+          return key === null ? [] : [{ target, key }];
         });
-        return error === undefined ? null : problemText(error);
+        const invalid = targets
+          .filter((target) => fromInstanceId(target.id) === null)
+          .map((target) => ({ item: target, ok: false, message: "invalid instance id" }));
+        // By batches: one request per few hundred instances.
+        const results = await inBatches(valid, (batch) =>
+          api.POST("/services_instances/delete", {
+            body: {
+              instances: batch.map(({ key }) => ({ svc_id: key.svcId, node_id: key.nodeId })),
+            },
+          }),
+        );
+        return report([...results.map((r) => ({ ...r, item: r.item.target })), ...invalid]);
       },
       onDone: (done) => {
         if (done.length === 0) return;
@@ -115,13 +136,11 @@ export function InstanceActionsMenu({
       dataActions={dataActions}
       onCompare={onCompare}
       prefix="instances.actions"
-      queue={async (target, action) => {
+      enqueue={(target, action) => {
         const key = fromInstanceId(target.id);
-        if (key === null) return "invalid instance id";
-        const { error } = await api.PUT("/actions", {
-          body: { svc_id: key.svcId, node_id: key.nodeId, action },
-        });
-        return error === undefined ? null : problemText(error);
+        return key === null
+          ? "invalid instance id"
+          : { svc_id: key.svcId, node_id: key.nodeId, action };
       }}
     />
   );

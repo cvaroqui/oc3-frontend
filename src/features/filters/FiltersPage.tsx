@@ -3,6 +3,9 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import type { components } from "@/lib/api/schema";
+import { SelectionDeleteMenu } from "@/components/opensvc/SelectionDeleteMenu";
+import { usageWarnings } from "@/components/opensvc/usage-warnings";
+import { problemText } from "@/lib/api/problem";
 import { api } from "@/lib/api/client";
 import { toPage } from "@/lib/api/page";
 import {
@@ -20,7 +23,8 @@ import {
   visibleProps,
   type ResolvedListSearch,
 } from "@/lib/list-search";
-import { filterQuery, filtersKey } from "@/lib/column-filters";
+import { filterQuery, filtersKey, type ColumnFilters } from "@/lib/column-filters";
+import { STATS_LIMIT, toValueStats, type ValueStats } from "@/lib/api/value-stats";
 import { useViewPrefs, withSavedSearch } from "@/lib/user-prefs";
 import { FilterDetailPanel } from "./FilterDetailPanel";
 import { FilterFormPanel } from "./FilterFormPanel";
@@ -70,8 +74,8 @@ const COLUMNS: ListColumn<FilterRow>[] = FILTER_PROPS.map((prop) => ({
   numeric: NUMERIC_PROPS.has(prop),
   family: FAMILY[prop] ?? "state",
   filter: prop === "f_op" ? { kind: "enum", options: OPERATOR_OPTIONS } : undefined,
-  render: (row: FilterRow, locale: string) => {
-    if (prop === "f_updated") return <DateTime value={row.f_updated} locale={locale} />;
+  render: (row: FilterRow) => {
+    if (prop === "f_updated") return <DateTime value={row.f_updated} />;
     // The operator and the value read in a monospace font: a space or a LIKE "%" must
     // not go unnoticed.
     if (prop === "f_op" || prop === "f_value")
@@ -108,6 +112,17 @@ async function fetchFilters(search: ResolvedListSearch) {
   return toPage(all, data.meta, search.limit);
 }
 
+/**
+ * The distribution of a column's values over the filters the filters given keep,
+ * for its filter: the pagination does not apply.
+ */
+async function filterStats(prop: string, filters: ColumnFilters): Promise<ValueStats> {
+  const query = { props: prop, stats: "1", limit: STATS_LIMIT, filter: filterQuery(filters) };
+  const response = await api.GET("/filters", { params: { query } });
+  if (response.error !== undefined) throw new Error(problemText(response.error));
+  return toValueStats(response.data.data, response.data.meta, prop);
+}
+
 function useFilters(search: ResolvedListSearch) {
   return useQuery({
     queryKey: [
@@ -134,6 +149,23 @@ export function FiltersPage() {
   );
   const navigate = useNavigate({ from: "/filters" });
   const { data, isPending, isError, error, isFetching } = useFilters(search);
+  // The rows checked, and those just deleted, for the list to untick them.
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [deleted, setDeleted] = useState<string[]>([]);
+  // Names from the page on display: a selection extended to the following pages does
+  // not have them all, so the id then serves as a fallback in the messages.
+  const names = new Map<string, string>();
+  for (const row of data?.rows ?? []) {
+    const id = row.id === undefined ? undefined : String(row.id);
+    // The label when its column is shown, else the definition, which the default
+    // columns hold, as the label writes it.
+    const label =
+      row.f_label ??
+      (row.f_table === undefined || row.f_field === undefined
+        ? undefined
+        : `${row.f_table}.${row.f_field} ${row.f_op ?? ""} ${row.f_value ?? ""}`.trim());
+    if (id !== undefined && label !== undefined) names.set(id, label);
+  }
   // A single form: creation when nothing is selected, editing otherwise.
   const [form, setForm] = useState<"create" | "edit" | null>(null);
   const selectedFilter = useFilter(form === "edit" ? search.sel : undefined);
@@ -186,18 +218,50 @@ export function FiltersPage() {
         >
           {t("filters.form.open")}
         </button>
+        {/* On the rows checked in the list; nothing checked, no menu. */}
+        <SelectionDeleteMenu
+          targets={selectedIds.map((id) => ({ id, name: names.get(id) ?? id }))}
+          prefix="filters.actions"
+          privileges={["CompManager"]}
+          remove={async (id) => {
+            const { error } = await api.DELETE("/filters/{filter_id}", {
+              params: { path: { filter_id: id } },
+            });
+            return error === undefined ? null : problemText(error);
+          }}
+          invalidate={[["filters"], ["filterset"], ["filtersets"]]}
+          warnings={(targets) =>
+            usageWarnings(
+              targets,
+              async (id) => {
+                const { data, error } = await api.GET("/filters/{filter_id}/usage", {
+                  params: { path: { filter_id: id } },
+                });
+                if (error !== undefined) throw new Error(problemText(error));
+                return data.data.filtersets.length;
+              },
+              (target, uses) =>
+                t("filters.actions.data.delete.used", { name: target.name, count: uses }),
+            )
+          }
+          onDeleted={(ids) => {
+            setDeleted(ids);
+            // The detail of a deleted object has nothing left to show.
+            if (search.sel !== undefined && ids.includes(search.sel)) update({ sel: undefined });
+          }}
+        />
       </div>
       <p className="mb-3 max-w-3xl text-ink-muted">{t("filters.intro")}</p>
 
       <CollectorList
+        viewPrefs={prefs}
+        valueStats={filterStats}
         columns={COLUMNS}
         defaultCols={DEFAULT_COLS}
         rows={data?.rows ?? []}
         rowId={(row) => (row.id === undefined ? undefined : String(row.id))}
         search={search}
         onChange={update}
-        // A filter is not filtered by a filterset: filtersets are made of filters.
-        filtersets={[]}
         isPending={isPending}
         isFetching={isFetching}
         errorMessage={isError ? error.message : null}
@@ -205,6 +269,8 @@ export function FiltersPage() {
         exportPage={(page) => fetchFilters({ ...search, ...page })}
         total={data?.total}
         selectAllMatching={allIds}
+        onSelectionChange={setSelectedIds}
+        unselect={deleted}
         filterable
       />
 

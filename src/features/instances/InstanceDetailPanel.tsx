@@ -4,12 +4,13 @@ import type { components } from "@/lib/api/schema";
 import { api } from "@/lib/api/client";
 import { DetailContent, type DetailGroup } from "@/components/opensvc/DetailPanel";
 import { RelatedTabsPanel } from "@/components/opensvc/RelatedTabsPanel";
-import { INSTANCE_RELATED_TABS } from "./instance-related";
+import { INSTANCE_RELATED_TABS, INSTANCE_TAB_GROUPS } from "./instance-related";
 import { statusField } from "@/components/opensvc/status-field";
 import { StatusTimeline } from "@/components/opensvc/StatusTimeline";
 import { linkedField } from "@/components/opensvc/linked-field";
 import { ObjectTags } from "@/components/opensvc/ObjectTags";
 import { InstanceActionsMenu } from "./InstanceActionsMenu";
+import { InstanceWebappLink } from "@/components/opensvc/AgentWebappLink";
 import { useServiceTags } from "@/features/services/related/queries";
 import { useTagEdit } from "@/features/tags/use-tag-edit";
 import { problemText } from "@/lib/api/problem";
@@ -37,9 +38,9 @@ const nonZero = (prop: keyof InstanceRow) => ({
 
 const date = (prop: keyof InstanceRow) => ({
   prop,
-  format: (row: InstanceRow, locale: string) => {
+  format: (row: InstanceRow) => {
     const value = row[prop];
-    return typeof value === "string" ? formatDateTime(value, locale) : undefined;
+    return typeof value === "string" ? formatDateTime(value) : undefined;
   },
 });
 
@@ -180,19 +181,29 @@ export function InstanceDetailPanel({
       onClose={onClose}
       objectId={instanceId}
       tabs={INSTANCE_RELATED_TABS}
+      groups={INSTANCE_TAB_GROUPS}
+      // The boxes as a horizontal masonry, as on the node.
+      tileLayout="masonry"
       tab={tab}
       onTabChange={onTabChange}
       propertiesFamily="service"
       label={t("instances.detail.tabs")}
-    >
-      {tagEdit.allowed && (
-        <div className="mb-4">
-          <InstanceActionsMenu
-            instances={instanceId === undefined ? [] : [{ id: instanceId, name: title }]}
-            onDeleted={onClose}
+      titleActions={
+        <div className="flex items-center gap-2">
+          {tagEdit.allowed && instanceId !== undefined && (
+            <InstanceActionsMenu
+              instances={[{ id: instanceId, name: title }]}
+              onDeleted={onClose}
+            />
+          )}
+          <InstanceWebappLink
+            svcname={instance?.["services.svcname"]}
+            nodename={instance?.["nodes.nodename"]}
+            nodeId={key?.nodeId}
           />
         </div>
-      )}
+      }
+    >
       <ObjectTags
         tags={tags.data}
         isPending={svcId !== undefined && tags.isPending}

@@ -8,16 +8,18 @@ import type { ObjectKind } from "./ObjectIcon";
 import { RelatedCount } from "./RelatedCount";
 import { BookmarkButton } from "./BookmarkButton";
 import { BOOKMARK_KINDS } from "./bookmark-kinds";
-import { PanelHistoryRail } from "./PanelHistory";
 import { FlashScope } from "./Flash";
 import { PanelTitle } from "./PanelTitle";
-import { recordKey } from "./panel-history";
-import { PROPERTIES_TAB, type RelatedTab } from "./related-tabs";
+import { PROPERTIES_TAB, type RelatedTab, type RelatedTabGroup } from "./related-tabs";
+import { RelatedTileNav, type ResolvedGroup } from "./RelatedTileNav";
 
 /**
  * Detail panel with tabs: the properties of the object, then its related data, one
  * tab each with its count. The open tab is held by the view, in the URL (`tab`), so
  * that a link, a reload or the Back button reopen it.
+ *
+ * With `groups`, the tab bar gives way to tiles always on display, a box per
+ * group (`RelatedTileNav`). The URL still names the tab.
  */
 export function RelatedTabsPanel({
   open,
@@ -26,10 +28,13 @@ export function RelatedTabsPanel({
   onClose,
   objectId,
   tabs,
+  groups,
   tab,
   onTabChange,
   propertiesFamily,
   label,
+  titleActions,
+  tileLayout,
   children,
 }: {
   open: boolean;
@@ -39,12 +44,18 @@ export function RelatedTabsPanel({
   /** Id passed to the tabs; absent as long as nothing is selected. */
   objectId: string | undefined;
   tabs: RelatedTab[];
+  /** The tabs gathered in boxes of tiles; none, a tab bar. */
+  groups?: RelatedTabGroup[];
   tab: string | undefined;
   onTabChange: (tab: string | undefined) => void;
   /** Icon of the properties tab. */
   propertiesFamily: ColumnFamily;
   /** Accessible name of the tab bar. */
   label: string;
+  /** The actions on the object, beside its title in the header, whatever the tab. */
+  titleActions?: ReactNode;
+  /** How the boxes of tiles are laid out, with `groups` (see `RelatedTileNav`). */
+  tileLayout?: "columns" | "masonry";
   /** Content of the properties tab. */
   children: ReactNode;
 }) {
@@ -54,6 +65,13 @@ export function RelatedTabsPanel({
   // to the properties.
   const related = tabs.find((entry) => entry.key === tab);
   const active = related?.key ?? PROPERTIES_TAB;
+  // The groups with the tabs the panel has, those it lacks skipped.
+  const resolved: ResolvedGroup[] = (groups ?? [])
+    .map((group) => ({
+      ...group,
+      entries: group.tabs.flatMap((key) => tabs.filter((entry) => entry.key === key)),
+    }))
+    .filter((group) => group.entries.length > 0);
   const items: TabItem[] = [
     {
       key: PROPERTIES_TAB,
@@ -64,7 +82,7 @@ export function RelatedTabsPanel({
       key: entry.key,
       label: t(entry.labelKey),
       icon: entry.icon,
-      badge: <RelatedCount tab={entry} id={objectId} />,
+      badge: <RelatedCount tab={entry} id={objectId} active={entry.key === active} />,
     })),
   ];
 
@@ -78,29 +96,57 @@ export function RelatedTabsPanel({
       closeLabel={t("detail.close")}
       resizeLabel={t("detail.resize")}
       heading={
-        <PanelTitle kind={kind} title={title} recordId={objectId} open={open} size="wider" />
+        <PanelTitle
+          kind={kind}
+          title={title}
+          recordId={objectId}
+          open={open}
+          actions={titleActions}
+        />
       }
-      rail={<PanelHistoryRail currentKey={recordKey(kind, objectId)} />}
+      reopenable
       actions={
         objectId !== undefined && BOOKMARK_KINDS.has(kind) ? (
           <BookmarkButton kind={kind} id={objectId} />
         ) : undefined
       }
       subheader={
-        <TabList
-          tabs={items}
-          active={active}
-          onChange={(key) => {
-            onTabChange(key === PROPERTIES_TAB ? undefined : key);
-          }}
-          label={label}
-          idPrefix={tabsId}
-        />
+        groups === undefined ? (
+          <TabList
+            tabs={items}
+            active={active}
+            onChange={(key) => {
+              onTabChange(key === PROPERTIES_TAB ? undefined : key);
+            }}
+            label={label}
+            idPrefix={tabsId}
+          />
+        ) : (
+          <RelatedTileNav
+            groups={resolved}
+            active={active}
+            objectId={objectId}
+            onSelect={onTabChange}
+            label={label}
+            propertiesIcon={<ColumnFamilyIcon family={propertiesFamily} />}
+            layout={tileLayout}
+          />
+        )
       }
     >
       {/* Another record or another tab brings other data, which is not an update to flash. */}
       <FlashScope subject={`${kind}:${objectId ?? ""}:${active}`}>
-        <div {...tabPanelProps(tabsId, active)} className="outline-none">
+        <div
+          // Grouped, the tiles are buttons, not tabs: the content is a region named
+          // after the tab on display.
+          {...(groups === undefined
+            ? tabPanelProps(tabsId, active)
+            : {
+                role: "region",
+                "aria-label": related === undefined ? t("related.properties") : t(related.labelKey),
+              })}
+          className="outline-none"
+        >
           {related === undefined || objectId === undefined
             ? children
             : related.render(objectId, i18n.language)}

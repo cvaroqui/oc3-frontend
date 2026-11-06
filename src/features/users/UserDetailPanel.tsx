@@ -10,6 +10,8 @@ import { EDITABLE_USER_GROUPS, USER_PROPS_QUERY } from "./user-fields";
 import { useSaveUser } from "./use-save-user";
 import { useCanImpersonate, useImpersonate } from "./use-impersonate";
 import { UserGroupsParts } from "./UserGroupsParts";
+import { DeleteUser } from "./DeleteUser";
+import { SetUserPassword } from "./SetUserPassword";
 
 type UserRow = components["schemas"]["UserRow"];
 
@@ -23,7 +25,8 @@ type UserRow = components["schemas"]["UserRow"];
  * else.
  *
  * Under the properties, the organisational and privilege groups of the user,
- * which a GroupManager changes in place.
+ * which a GroupManager changes in place. At the foot, deleting the user, for a
+ * UserManager (`DeleteUser`), and so is setting their password (`SetUserPassword`).
  */
 export function UserDetailPanel({
   userId,
@@ -106,6 +109,17 @@ export function UserDetailPanel({
                 </p>
               )}
             </div>
+          )}
+          {userId !== undefined && user !== null && user !== undefined && (
+            <SetUserPassword userId={userId} email={user.email ?? label} isSelf={isSelf} />
+          )}
+          {userId !== undefined && user !== null && user !== undefined && (
+            <DeleteUser
+              userId={userId}
+              email={user.email ?? label}
+              isSelf={isSelf}
+              onDeleted={onClose}
+            />
           )}
         </div>
       }

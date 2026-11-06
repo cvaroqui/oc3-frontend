@@ -1,25 +1,19 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import type { components } from "@/lib/api/schema";
 import { api } from "@/lib/api/client";
 import { problemText } from "@/lib/api/problem";
+import { FiltersetUsageList, UsageWarning } from "@/components/opensvc/FiltersetUsage";
+import { filtersetUsageCount } from "@/components/opensvc/filterset-usage";
 import { DetailContent, type DetailGroup } from "@/components/opensvc/DetailPanel";
 import { ObjectIcon } from "@/components/opensvc/ObjectIcon";
-import { PanelHistoryRail } from "@/components/opensvc/PanelHistory";
-import { PanelTitle } from "@/components/opensvc/PanelTitle";
-import { recordKey } from "@/components/opensvc/panel-history";
+import { RelatedTabsPanel } from "@/components/opensvc/RelatedTabsPanel";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
-import { SlideOver } from "@/components/ui/SlideOver";
 import { TrashIcon } from "@/components/ui/icons";
 import { formatDateTime } from "@/lib/format";
 import { FiltersetComposition } from "./FiltersetComposition";
-import {
-  FILTERSET_KEY,
-  useFilterset,
-  useFiltersetMatches,
-  useFiltersetUsage,
-} from "./filterset-api";
+import { FILTERSET_KEY, useFilterset, useFiltersetUsage } from "./filterset-api";
+import { FILTERSET_RELATED_TABS } from "./related/filterset-related";
 
 type FiltersetRow = components["schemas"]["FiltersetRow"];
 
@@ -37,32 +31,37 @@ const GROUPS: DetailGroup<FiltersetRow>[] = [
       { prop: "fset_name", format: text("fset_name"), editable: true },
       { prop: "fset_stats", format: text("fset_stats"), editable: true, input: "boolean" },
       { prop: "fset_author", format: text("fset_author") },
-      { prop: "fset_updated", format: (row, locale) => formatDateTime(row.fset_updated, locale) },
+      { prop: "fset_updated", format: (row) => formatDateTime(row.fset_updated) },
       { prop: "id", format: text("id") },
     ],
   },
 ];
 
 /**
- * Detail of a filterset: properties, composition, effect and uses.
+ * Detail of a filterset: properties, composition and uses, then the nodes and the
+ * services it selects, a tab each. The open tab lives in the URL (`tab`), held by
+ * the view.
  *
- * Placed directly in a drawer rather than through `DetailPanel`: the composition and
+ * The first tab is built here rather than through `DetailPanel`: the composition and
  * the uses are not lists of properties.
  */
 export function FiltersetDetailPanel({
   filtersetId,
   label,
   onClose,
+  tab,
+  onTabChange,
 }: {
   filtersetId: string | undefined;
   label: string;
   onClose: () => void;
+  tab: string | undefined;
+  onTabChange: (tab: string | undefined) => void;
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const filterset = useFilterset(filtersetId);
   const usage = useFiltersetUsage(filtersetId);
-  const matches = useFiltersetMatches(filtersetId);
   const row = filterset.data;
   const open = filtersetId !== undefined;
 
@@ -100,26 +99,21 @@ export function FiltersetDetailPanel({
   });
 
   const used = usage.data;
-  const usedCount =
-    used === undefined ? 0 : used.filtersets.length + used.rulesets.length + used.thresholds.length;
+  const usedCount = used === undefined ? 0 : filtersetUsageCount(used);
   const name = row?.fset_name ?? "";
 
   return (
-    <SlideOver
+    <RelatedTabsPanel
       open={open}
       title={row?.fset_name ?? (label === "" ? t("filtersets.detail.title") : label)}
+      kind="filterset"
       onClose={onClose}
-      closeLabel={t("detail.close")}
-      resizeLabel={t("detail.resize")}
-      heading={
-        <PanelTitle
-          kind="filterset"
-          title={row?.fset_name ?? (label === "" ? t("filtersets.detail.title") : label)}
-          recordId={filtersetId}
-          open={open}
-        />
-      }
-      rail={<PanelHistoryRail currentKey={recordKey("filterset", filtersetId)} />}
+      objectId={filtersetId}
+      tabs={FILTERSET_RELATED_TABS}
+      tab={tab}
+      onTabChange={onTabChange}
+      propertiesFamily="state"
+      label={t("filtersets.related.label")}
     >
       <div className="flex flex-col gap-5">
         <DetailContent
@@ -139,91 +133,49 @@ export function FiltersetDetailPanel({
 
             <section>
               <h3 className="mb-1 flex items-center gap-2 font-semibold text-ink-muted">
-                <ObjectIcon kind="node" />
-                {t("filtersets.matches.title")}
-              </h3>
-              {matches.isPending && <p className="text-ink-muted">{t("detail.loading")}</p>}
-              {matches.isError && (
-                <p role="alert" className="text-state-down">
-                  ■ {matches.error.message}
-                </p>
-              )}
-              {matches.data !== undefined && (
-                <p className="flex flex-wrap gap-x-4 gap-y-1">
-                  <Link
-                    to="/nodes"
-                    search={{ fset: name }}
-                    className="underline decoration-line underline-offset-2"
-                  >
-                    {t("filtersets.matches.nodes", { count: matches.data.nodes })}
-                  </Link>
-                  <Link
-                    to="/services"
-                    search={{ fset: name }}
-                    className="underline decoration-line underline-offset-2"
-                  >
-                    {t("filtersets.matches.services", { count: matches.data.services })}
-                  </Link>
-                </p>
-              )}
-            </section>
-
-            <section>
-              <h3 className="mb-1 flex items-center gap-2 font-semibold text-ink-muted">
                 <ObjectIcon kind="filterset" />
                 {t("filtersets.usage.title")}
               </h3>
               {used !== undefined && usedCount === 0 && (
                 <p className="text-ink-muted">{t("filtersets.usage.none")}</p>
               )}
-              {used !== undefined && usedCount > 0 && (
-                <dl className="grid grid-cols-[minmax(8rem,auto)_1fr] gap-x-3 gap-y-1 text-data">
-                  {used.filtersets.length > 0 && (
-                    <>
-                      <dt className="text-ink-muted">{t("filtersets.usage.filtersets")}</dt>
-                      <dd className="flex flex-wrap gap-x-3">
-                        {used.filtersets.map((ref) => (
-                          <Link
-                            key={ref.id}
-                            to="/filtersets"
-                            search={{ sel: String(ref.id) }}
-                            className="underline decoration-line underline-offset-2"
-                          >
-                            {ref.fset_name}
-                          </Link>
-                        ))}
-                      </dd>
-                    </>
-                  )}
-                  {used.rulesets.length > 0 && (
-                    <>
-                      <dt className="text-ink-muted">{t("filtersets.usage.rulesets")}</dt>
-                      <dd>{used.rulesets.map((ref) => ref.fset_name).join(", ")}</dd>
-                    </>
-                  )}
-                  {used.thresholds.length > 0 && (
-                    <>
-                      <dt className="text-ink-muted">{t("filtersets.usage.thresholds")}</dt>
-                      <dd>{used.thresholds.join(", ")}</dd>
-                    </>
-                  )}
-                </dl>
-              )}
+              {used !== undefined && usedCount > 0 && <FiltersetUsageList usage={used} />}
             </section>
 
             <div className="border-t border-line pt-3">
               <ConfirmButton
                 icon={<TrashIcon />}
                 label={t("detail.delete")}
-                question={
-                  usedCount > 0
-                    ? t("filtersets.delete.questionUsed", { name, count: usedCount })
-                    : t("filtersets.delete.question", { name })
-                }
+                question={t("filtersets.delete.question", { name })}
                 confirmLabel={t("detail.deleteConfirm")}
                 cancelLabel={t("detail.cancel")}
                 pendingLabel={t("detail.deleting")}
                 pending={remove.isPending}
+                // The uses are read again on arming: the panel may have been open a while.
+                onArm={() => {
+                  void usage.refetch();
+                }}
+                blocked={usage.isFetching}
+                details={
+                  usage.isFetching ? (
+                    <p className="text-ink-muted">{t("usage.checking")}</p>
+                  ) : usage.isError ? (
+                    <p role="alert" className="text-state-down">
+                      ■ {t("usage.error", { message: usage.error.message })}
+                    </p>
+                  ) : used !== undefined && usedCount > 0 ? (
+                    <UsageWarning title={t("usage.filterset.warning", { count: usedCount })}>
+                      <FiltersetUsageList usage={used} consequences />
+                    </UsageWarning>
+                  ) : undefined
+                }
+                acknowledge={
+                  usage.isError
+                    ? t("usage.acknowledgeUnknown")
+                    : usedCount > 0
+                      ? t("usage.filterset.acknowledge", { count: usedCount })
+                      : undefined
+                }
                 onConfirm={() => {
                   remove.mutate();
                 }}
@@ -237,6 +189,6 @@ export function FiltersetDetailPanel({
           </>
         )}
       </div>
-    </SlideOver>
+    </RelatedTabsPanel>
   );
 }

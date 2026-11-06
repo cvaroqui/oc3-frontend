@@ -1,9 +1,10 @@
 import { useId, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { TransientNotice } from "@/components/ui/TransientNotice";
 import { api } from "@/lib/api/client";
 import { problemText } from "@/lib/api/problem";
-import { setCredentials, useCredentials } from "@/lib/api/auth";
+import { isSession, setCredentials, useCredentials } from "@/lib/api/auth";
 import { useImpersonation } from "@/lib/api/impersonation";
 import { ProfileCard } from "./ProfileCard";
 
@@ -37,6 +38,8 @@ export function PasswordSection({ email }: { email: string | undefined }) {
   const [visible, setVisible] = useState(false);
   const opener = useRef<HTMLButtonElement>(null);
 
+  // The change whose report was dismissed, or left by itself: by when it was asked.
+  const [dismissedChange, setDismissedChange] = useState<number | null>(null);
   const change = useMutation({
     mutationFn: async ({ current, next }: { current: string; next: string }) => {
       const { error, response } = await api.POST("/users/self/password", {
@@ -50,7 +53,9 @@ export function PasswordSection({ email }: { email: string | undefined }) {
       return next;
     },
     onSuccess: (next) => {
-      if (credentials !== null) setCredentials({ ...credentials, password: next });
+      // Basic credentials go on with the new password; a session needs nothing.
+      if (credentials !== null && !isSession(credentials))
+        setCredentials({ ...credentials, password: next });
       close();
     },
   });
@@ -107,11 +112,16 @@ export function PasswordSection({ email }: { email: string | undefined }) {
     <ProfileCard
       title={t("profile.password.title")}
       family="security"
-      hint={t("profile.password.hint", { count: MIN_LENGTH })}
+      // The rules of a collector password say nothing to whoever signs in through
+      // the identity provider, whose password lives there.
+      hint={isSession(credentials) ? undefined : t("profile.password.hint", { count: MIN_LENGTH })}
     >
       {impersonation !== null ? (
         // The server refuses it: a password is changed only by its owner.
         <p className="text-ink-muted">{t("impersonation.noPassword")}</p>
+      ) : isSession(credentials) ? (
+        // Signed in through the identity provider: the password lives there.
+        <p className="text-ink-muted">{t("profile.password.managedByProvider")}</p>
       ) : !open ? (
         <div className="space-y-2">
           <button
@@ -126,10 +136,16 @@ export function PasswordSection({ email }: { email: string | undefined }) {
           >
             {t("profile.password.open")}
           </button>
-          {change.isSuccess && (
-            <p role="status" className="text-state-up">
-              ● {t("profile.password.done")}
-            </p>
+          {change.isSuccess && dismissedChange !== change.submittedAt && (
+            <TransientNotice
+              id={change.submittedAt}
+              tone="success"
+              text={t("profile.password.done")}
+              dismissLabel={t("actionsMenu.dismiss")}
+              onDismiss={() => {
+                setDismissedChange(change.submittedAt);
+              }}
+            />
           )}
         </div>
       ) : (

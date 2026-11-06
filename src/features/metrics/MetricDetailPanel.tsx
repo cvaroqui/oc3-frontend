@@ -23,7 +23,11 @@ const GROUPS: DetailGroup<MetricRow>[] = [
         prop: "metric_historize",
         format: text("metric_historize"),
         render: (row) => (
-          <FlagSwitch value={row.metric_historize} labelKey="metrics.fields.metric_historize" />
+          <FlagSwitch
+            value={row.metric_historize}
+            labelKey="metrics.fields.metric_historize"
+            size="md"
+          />
         ),
       },
       {
@@ -54,7 +58,7 @@ const GROUPS: DetailGroup<MetricRow>[] = [
       { prop: "metric_author", format: text("metric_author") },
       {
         prop: "metric_created",
-        format: (row, locale) => formatDateTime(row.metric_created, locale),
+        format: (row) => formatDateTime(row.metric_created),
       },
       { prop: "id", format: text("id") },
     ],

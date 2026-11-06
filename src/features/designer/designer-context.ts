@@ -1,4 +1,5 @@
 import { createContext, useContext } from "react";
+import type { CommitResult } from "./commit";
 import type { Draft, LogLine, ObjectRef, Operation, Refusal } from "./model";
 
 /** A message of the designer: a translation key with its values, and its tone. */
@@ -9,6 +10,16 @@ export interface Notice {
   /** A change log line the message is about, translated into its `what` value. */
   inner?: LogLine;
   tone: "done" | "refused";
+}
+
+/** The changes of an earlier visit, replayed on the collector's current data. */
+export interface Resumed {
+  /** How many were applied again. */
+  count: number;
+  /** When the last of them was made, "YYYY-MM-DD HH:MM:SS". */
+  at: string;
+  /** Those the current data no longer allows, left out. */
+  dropped: LogLine[];
 }
 
 /** The designer sandbox as the components see it, provided by `DesignerProvider`. */
@@ -26,6 +37,31 @@ export interface Designer {
   describe: (operation: Operation) => LogLine;
   undo: () => void;
   reset: () => void;
+  /**
+   * Saves the pending changes to the collector, in order, up to the first it
+   * refuses; those saved leave the sandbox, the others stay pending, and the
+   * compliance export is recorded as a version of its git history.
+   */
+  /** Saves all the pending changes, or none. */
+  commit: (
+    /** The message of the version recording the changes saved. */
+    historyMessage: (saved: LogLine[]) => string,
+    /** The message of the version of the export as found before saving, if it changed. */
+    baselineMessage: string,
+  ) => Promise<CommitResult>;
+  /** The version of the compliance history the pending changes restore, if they do. */
+  restoredFrom: string | undefined;
+  /** Adds the operations restoring a version to the pending changes. */
+  restore: (commit: string, operations: Operation[]) => void;
+  /** The changes of an earlier visit the sandbox started from, until dismissed. */
+  resumed: Resumed | undefined;
+  dismissResumed: () => void;
+  /** Another tab changed the changes kept in the browser since this one last did. */
+  changedElsewhere: boolean;
+  /** Reads the collector again and starts over from the changes kept in the browser. */
+  reload: () => void;
+  /** The name stamped on the variables changed in the draft. */
+  author: string;
   notices: Notice[];
   notify: (notice: Omit<Notice, "id">) => void;
   dismiss: (id: number) => void;

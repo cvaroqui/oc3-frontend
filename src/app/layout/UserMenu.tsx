@@ -2,8 +2,11 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { ObjectIcon } from "@/components/opensvc/ObjectIcon";
-import { ChevronDownIcon, SignOutIcon, UserIcon } from "@/components/ui/icons";
-import { signOut, stopImpersonating } from "@/lib/session";
+import { BookIcon, CodeIcon, InfoIcon, SignOutIcon, UserIcon } from "@/components/ui/icons";
+import { useApiDocsUrl } from "@/lib/api/api-docs";
+import { useHiddenMenuEntries } from "@/lib/api/hidden-menu-entries";
+import { stopImpersonating } from "@/lib/session";
+import { logOut } from "@/lib/api/session-auth";
 import { useImpersonation } from "@/lib/api/impersonation";
 import { ImpersonateDialog } from "@/features/users/ImpersonateDialog";
 import { useCanImpersonate } from "@/features/users/use-impersonate";
@@ -12,8 +15,11 @@ import { setShortcutsHelp } from "@/lib/shortcuts";
 const ITEM =
   "flex w-full items-center gap-2 rounded-(--radius-control) px-2 py-1.5 text-left text-ink hover:bg-surface focus:bg-surface focus:outline-none";
 
+/** The OpenSVC online documentation, whatever the collector. */
+const OPENSVC_DOCS_URL = "https://book.opensvc.com";
+
 /**
- * Account menu, opened from the user name in the top bar.
+ * Account menu, opened from the user icon in the top bar.
  *
  * It follows the "menu button" pattern of the ARIA APG: the button announces the
  * menu and its state, opening from the keyboard puts the focus on the first entry,
@@ -26,6 +32,8 @@ export function UserMenu({ user }: { user: string }) {
   const [open, setOpen] = useState(false);
   const impersonation = useImpersonation();
   const canImpersonate = useCanImpersonate();
+  const apiDocs = useApiDocsUrl();
+  const hiddenEntries = useHiddenMenuEntries();
   const [impersonating, setImpersonating] = useState(false);
   const menuId = useId();
   const root = useRef<HTMLDivElement>(null);
@@ -120,16 +128,17 @@ export function UserMenu({ user }: { user: string }) {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={menuId}
-        title={t("header.accountMenu")}
+        // The icon alone in the bar: the user is named in the tooltip, to assistive
+        // technologies and at the head of the menu.
+        title={t("header.accountMenuOf", { user })}
+        aria-label={t("header.accountMenuOf", { user })}
         onClick={() => {
           setOpen((previous) => !previous);
         }}
         onKeyDown={onButtonKeyDown}
-        className="flex items-center gap-1.5 rounded-(--radius-control) px-1 py-1 text-ink-muted hover:text-ink aria-expanded:text-ink"
+        className="flex items-center rounded-(--radius-control) p-1 text-ink-muted hover:text-ink aria-expanded:text-ink"
       >
-        <ObjectIcon kind="user" />
-        {user}
-        <ChevronDownIcon className="h-3.5 w-3.5" />
+        <ObjectIcon kind="user" className="h-4 w-4" />
       </button>
 
       {open && (
@@ -141,6 +150,10 @@ export function UserMenu({ user }: { user: string }) {
           onKeyDown={onMenuKeyDown}
           className="absolute right-0 z-30 mt-1 min-w-48 rounded-(--radius-panel) border border-line bg-surface-raised p-1 shadow-lg"
         >
+          {/* Who is signed in: text, not an entry, which the arrows skip. */}
+          <p className="mb-1 truncate border-b border-line px-2 pt-1 pb-1.5 text-data text-ink-muted">
+            {t("header.signedInAs", { user })}
+          </p>
           <Link
             to="/profile"
             role="menuitem"
@@ -172,6 +185,54 @@ export function UserMenu({ user }: { user: string }) {
             </kbd>
             {t("shortcuts.title")}
           </button>
+          {/* The REST API documentation, the historical "rest_api" entry (menu key
+              help-api, which a group may hide), in a tab of its own: the interface
+              stays where it is. Shown only when oc3 serves it. */}
+          {apiDocs !== undefined && hiddenEntries.data?.has("help-api") !== true && (
+            <a
+              href={apiDocs}
+              target="_blank"
+              rel="noopener noreferrer"
+              role="menuitem"
+              tabIndex={-1}
+              onClick={() => {
+                close(false);
+              }}
+              className={ITEM}
+            >
+              <CodeIcon className="text-ink-muted" />
+              {t("header.apiDocs")}
+              <span className="sr-only">{t("header.newTab")}</span>
+            </a>
+          )}
+          {/* The OpenSVC manual, on its own site, in a tab of its own. */}
+          <a
+            href={OPENSVC_DOCS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            role="menuitem"
+            tabIndex={-1}
+            onClick={() => {
+              close(false);
+            }}
+            className={ITEM}
+          >
+            <BookIcon className="text-ink-muted" />
+            {t("header.opensvcDocs")}
+            <span className="sr-only">{t("header.newTab")}</span>
+          </a>
+          <Link
+            to="/about"
+            role="menuitem"
+            tabIndex={-1}
+            onClick={() => {
+              close(false);
+            }}
+            className={ITEM}
+          >
+            <InfoIcon className="text-ink-muted" />
+            {t("about.title")}
+          </Link>
           <div role="separator" className="my-1 border-t border-line" />
           {impersonation === null && canImpersonate && (
             <button
@@ -204,7 +265,15 @@ export function UserMenu({ user }: { user: string }) {
               {t("impersonation.stop")}
             </button>
           )}
-          <button type="button" role="menuitem" tabIndex={-1} onClick={signOut} className={ITEM}>
+          <button
+            type="button"
+            role="menuitem"
+            tabIndex={-1}
+            onClick={() => {
+              void logOut();
+            }}
+            className={ITEM}
+          >
             <SignOutIcon className="text-ink-muted" />
             {t("auth.signOut")}
           </button>

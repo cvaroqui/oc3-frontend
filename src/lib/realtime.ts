@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import type { QueryClient } from "@tanstack/react-query";
+import type { Query, QueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 
 /**
@@ -14,8 +14,32 @@ import { api } from "@/lib/api/client";
  * failure; once back, everything on display is refreshed, the events missed
  * meanwhile being unknown. Events are gathered for a moment before refreshing: an
  * agent feeding its status touches several tables every few seconds.
+ *
+ * On a collector of many nodes, the status of some instance changes every few
+ * seconds. The events the agents' feeds cause name the services and the nodes
+ * they changed (`scope`): the queries of a service or a node panel are refreshed
+ * only for their own object; an event naming none concerns any. Besides, a query
+ * is refreshed live at most every MIN_LIVE_MS (its `meta.liveMinMs` when longer,
+ * for the costly ones), and only by the tables of its `meta.liveTables` when it
+ * lists them, rather than by every table mapped to its key root. A hidden page
+ * refreshes nothing: the tables changed meanwhile are refreshed when it shows
+ * again.
  */
 export type RealtimeStatus = "off" | "connecting" | "live" | "retrying";
+
+/** What a query tells of its live refreshes, in its `meta`. */
+interface LiveMeta extends Record<string, unknown> {
+  /** The tables whose changes refresh it; by default, every table of its key root. */
+  liveTables?: readonly string[];
+  /** The least time between two live refreshes, when longer than MIN_LIVE_MS. */
+  liveMinMs?: number;
+}
+
+declare module "@tanstack/react-query" {
+  interface Register {
+    queryMeta: LiveMeta;
+  }
+}
 
 /**
  * The query key roots showing each table. A table no view shows is absent:
@@ -28,6 +52,8 @@ const TABLE_KEYS: Record<string, readonly string[]> = {
   services: ["services", "service", "search", "object-label"],
   svcmon: ["instances", "instance", "service", "node", "services"],
   resmon: ["service", "instance", "resources", "resource"],
+  // The actions the agents ran: the service and node tabs, the Actions view and its detail.
+  svcactions: ["service", "node", "serviceActions", "agentAction"],
   resinfo: ["service", "instance"],
   dashboard: ["alerts", "alert", "node", "service"],
   action_queue: ["actions", "action"],
@@ -40,12 +66,20 @@ const TABLE_KEYS: Record<string, readonly string[]> = {
   auth_user: ["users", "user"],
   auth_group: ["groups", "group"],
   auth_membership: ["users", "user", "groups", "group"],
+  field_constraints: ["field-constraints"],
+  // The entries a group hides from the menu: the menu, and the panel of the group.
+  group_hidden_menu_entries: ["user", "group"],
   gen_filtersets: ["filtersets", "filterset", "designer"],
   // The session filterset: `SessionFilter` reads the views again when it changes.
   gen_filterset_user: ["session-filterset"],
   gen_filtersets_filters: ["filtersets", "filterset", "designer"],
   gen_filters: ["filters", "filter", "filtersets", "filterset"],
   forms: ["forms", "form", "form-by-name"],
+  orchestrations: ["orchestrations", "orchestration"],
+  orchestration_runs: ["orchestration-runs", "orchestration-run"],
+  // The notes of the nodes and services, under their own key root: a save
+  // refreshes them alone, not every query of the node or service panels.
+  wiki_pages: ["wiki"],
   forms_store: ["workflows"],
   workflows: ["workflows"],
   form_output_results: ["form-output-results", "workflows"],
@@ -53,19 +87,22 @@ const TABLE_KEYS: Record<string, readonly string[]> = {
   comp_moduleset_modules: ["modulesets", "designer"],
   comp_moduleset_moduleset: ["modulesets", "designer"],
   comp_moduleset_ruleset: ["modulesets", "rulesets", "designer"],
-  comp_node_moduleset: ["node", "designer"],
-  comp_modulesets_services: ["service", "designer"],
+  comp_node_moduleset: ["node", "designer", "compliance-attachments"],
+  comp_modulesets_services: ["service", "designer", "compliance-attachments"],
   comp_rulesets: ["rulesets", "designer"],
   comp_rulesets_variables: ["rulesets", "designer"],
   comp_rulesets_rulesets: ["rulesets", "designer"],
   comp_rulesets_filtersets: ["rulesets", "designer"],
-  comp_rulesets_nodes: ["node", "designer"],
-  comp_rulesets_services: ["service", "designer"],
-  comp_status: ["compliance-logs", "node", "service"],
+  comp_rulesets_nodes: ["node", "designer", "compliance-attachments"],
+  comp_rulesets_services: ["service", "designer", "compliance-attachments"],
+  comp_status: ["compliance-logs", "compliance-status", "node", "service"],
   log: ["logs", "log"],
-  diskinfo: ["disks", "disk", "node", "service"],
-  svcdisks: ["disks", "disk", "node", "service"],
-  stor_array: ["disks", "disk"],
+  diskinfo: ["disks", "disk", "node", "service", "quotas"],
+  svcdisks: ["disks", "disk", "node", "service", "quotas"],
+  stor_array: ["disks", "disk", "quotas"],
+  stor_array_dg: ["quotas"],
+  stor_array_dg_quota: ["quotas"],
+  saves: ["saves"],
   switches: ["switches"],
   metrics: ["metrics", "metric"],
   reports: ["reports", "report"],
@@ -74,10 +111,18 @@ const TABLE_KEYS: Record<string, readonly string[]> = {
   node_hba: ["node", "service"],
   packages: ["packages", "node"],
   obsolescence: ["obsolescence", "obsolescence-setting"],
+  // The feed of a node's checks publishes "checks", the API the tables it changes.
+  checks: ["checks", "check", "node"],
+  checks_live: ["checks", "check", "node"],
+  checks_settings: ["checks", "check"],
+  checks_defaults: ["check-defaults", "check-default"],
+  gen_filterset_check_threshold: ["check-contextual", "check-contextual-one"],
 };
 
 /** Events are gathered this long before the queries are refreshed. */
 const FLUSH_MS = 2000;
+/** The least time between two live refreshes of a query. */
+const MIN_LIVE_MS = 15 * 1000;
 /** How long after a live refresh a change on screen is attributed to it. */
 const LIVE_WINDOW_MS = 6000;
 /** Waits between reconnections: 1 s, doubling up to a minute. */
@@ -91,7 +136,49 @@ let attempt = 0;
 let liveRefreshAt = 0;
 let retryTimer: number | undefined;
 let flushTimer: number | undefined;
-const pending = new Set<string>();
+/**
+ * The objects a table change concerns: the services and the nodes the event names
+ * in its `scope`, null when it names none, any object then.
+ */
+interface ChangeScope {
+  svcIds: Set<string>;
+  nodeIds: Set<string>;
+}
+
+/** The tables changed since the last refresh, waiting for it, with their scope. */
+const pending = new Map<string, ChangeScope | null>();
+
+/** Adds a change of the table to the pending ones, its scope joined to theirs. */
+function addChange(table: string, scope: ChangeScope | null) {
+  if (!pending.has(table)) {
+    pending.set(table, scope);
+    return;
+  }
+  const previous = pending.get(table) ?? null;
+  if (previous === null || scope === null) {
+    pending.set(table, null);
+    return;
+  }
+  for (const id of scope.svcIds) previous.svcIds.add(id);
+  for (const id of scope.nodeIds) previous.nodeIds.add(id);
+}
+
+/** The scope an event names, null when it names none or one not understood. */
+function readScope(event: object): ChangeScope | null {
+  if (!("scope" in event) || typeof event.scope !== "object" || event.scope === null) return null;
+  const scope = event.scope as Record<string, unknown>;
+  const ids = (value: unknown): Set<string> | null =>
+    Array.isArray(value) && value.every((id) => typeof id === "string")
+      ? new Set(value as string[])
+      : null;
+  const svcIds = ids(scope.svc_ids);
+  const nodeIds = ids(scope.node_ids);
+  return svcIds === null || nodeIds === null ? null : { svcIds, nodeIds };
+}
+/** The queries refreshed too recently, by query hash: refreshed when the timer ends. */
+const deferred = new Map<string, number>();
+/** The queries whose deferred refresh fell while the page was hidden: read on return. */
+const staleWhileHidden = new Set<Query>();
 const listeners = new Set<() => void>();
 
 function setStatus(next: RealtimeStatus) {
@@ -100,12 +187,82 @@ function setStatus(next: RealtimeStatus) {
   for (const listener of listeners) listener();
 }
 
+/**
+ * Whether the object a query shows is among those a change concerns. The queries
+ * of a service or a node panel, keyed `["service", <svc_id>, …]` or
+ * `["node", <node_id>, …]`, and their labels, `["object-label", <kind>, <id>]`,
+ * show one; the lists show any.
+ */
+function inScope(query: Query, scope: ChangeScope | null): boolean {
+  if (scope === null) return true;
+  const [root, first, second] = query.queryKey;
+  // The labels of the panel history, keyed by the kind of object then its id.
+  const [kind, id] = root === "object-label" ? [first, second] : [root, first];
+  if (typeof id !== "string") return true;
+  if (kind === "service") return scope.svcIds.has(id);
+  if (kind === "node") return scope.nodeIds.has(id);
+  return true;
+}
+
+/** Whether one of the changes refreshes the query. */
+function concerns(query: Query, changes: ReadonlyMap<string, ChangeScope | null>): boolean {
+  const root = query.queryKey[0];
+  if (typeof root !== "string") return false;
+  const own = query.meta?.liveTables;
+  for (const [table, scope] of changes)
+    if (
+      (TABLE_KEYS[table] ?? []).includes(root) &&
+      (own === undefined || own.includes(table)) &&
+      inScope(query, scope)
+    )
+      return true;
+  return false;
+}
+
+/** Refreshes one query, if still in the cache. */
+function refresh(running: QueryClient, query: Query) {
+  liveRefreshAt = Date.now();
+  void running.invalidateQueries({ queryKey: query.queryKey, exact: true });
+}
+
 function flush() {
   flushTimer = undefined;
-  const roots = [...pending];
+  const running = client;
+  if (running === null) return;
+  // Nothing is refreshed while the page is hidden: the tables stay pending until
+  // it shows again (onVisibilityChange).
+  if (document.hidden) return;
+  const tables = new Map(pending);
   pending.clear();
-  liveRefreshAt = Date.now();
-  for (const root of roots) void client?.invalidateQueries({ queryKey: [root] });
+  const now = Date.now();
+  for (const query of running.getQueryCache().getAll()) {
+    if (!concerns(query, tables) || deferred.has(query.queryHash)) continue;
+    const least = Math.max(MIN_LIVE_MS, query.meta?.liveMinMs ?? 0);
+    const wait = query.state.dataUpdatedAt + least - now;
+    if (wait <= 0) {
+      refresh(running, query);
+      continue;
+    }
+    // Read too recently: refreshed once its least time has passed, whatever
+    // changes meanwhile.
+    deferred.set(
+      query.queryHash,
+      window.setTimeout(() => {
+        deferred.delete(query.queryHash);
+        if (client !== running) return;
+        if (document.hidden) staleWhileHidden.add(query);
+        else refresh(running, query);
+      }, wait),
+    );
+  }
+}
+
+function onVisibilityChange() {
+  if (document.hidden || client === null) return;
+  const running = client;
+  for (const query of staleWhileHidden) refresh(running, query);
+  staleWhileHidden.clear();
+  if (pending.size > 0 && flushTimer === undefined) flushTimer = window.setTimeout(flush, FLUSH_MS);
 }
 
 /**
@@ -133,7 +290,8 @@ function onMessage(raw: unknown) {
     const name =
       typeof event === "object" && event !== null && "event" in event ? event.event : null;
     if (typeof name !== "string" || !name.endsWith("_change")) continue;
-    for (const root of TABLE_KEYS[name.slice(0, -"_change".length)] ?? []) pending.add(root);
+    const table = name.slice(0, -"_change".length);
+    if (table in TABLE_KEYS) addChange(table, readScope(event as object));
   }
   if (pending.size > 0 && flushTimer === undefined) flushTimer = window.setTimeout(flush, FLUSH_MS);
 }
@@ -195,6 +353,7 @@ async function connect() {
 export function startRealtime(queryClient: QueryClient): void {
   client = queryClient;
   attempt = 0;
+  document.addEventListener("visibilitychange", onVisibilityChange);
   void connect();
 }
 
@@ -206,6 +365,10 @@ export function stopRealtime(): void {
   retryTimer = undefined;
   flushTimer = undefined;
   pending.clear();
+  for (const timer of deferred.values()) window.clearTimeout(timer);
+  deferred.clear();
+  staleWhileHidden.clear();
+  document.removeEventListener("visibilitychange", onVisibilityChange);
   const ws = socket;
   socket = null;
   ws?.close();

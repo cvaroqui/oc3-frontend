@@ -86,6 +86,18 @@ export function DatabaseIcon(props: IconProps) {
   );
 }
 
+/** Backups: an archive box, its lid above, a handle on its front. */
+export function ArchiveIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path
+        fillRule="evenodd"
+        d="M3 3.5h18V8H3V3.5Zm1.5 6h15V20a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1V9.5Zm5 3v1.8h5v-1.8h-5Z"
+      />
+    </Svg>
+  );
+}
+
 /** Application codes: the collector's asterisk (fa-asterisk). */
 export function AsteriskIcon(props: IconProps) {
   return (
@@ -206,6 +218,27 @@ export function SignOutIcon(props: IconProps) {
   );
 }
 
+/** A table: a frame cut into rows. */
+export function TableIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path
+        fillRule="evenodd"
+        d="M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm1 2v3h14V6H5Zm0 5v3h14v-3H5Zm0 5v2h14v-2H5Z"
+      />
+    </Svg>
+  );
+}
+
+/** A timeline: bars of different lengths, one per track. */
+export function TimelineIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M3 5h9a1 1 0 1 1 0 2H3a1 1 0 1 1 0-2Zm5 6h11a1 1 0 1 1 0 2H8a1 1 0 1 1 0-2Zm-3 6h7a1 1 0 1 1 0 2H5a1 1 0 1 1 0-2Z" />
+    </Svg>
+  );
+}
+
 /** Column picker. */
 export function ColumnsIcon(props: IconProps) {
   return (
@@ -269,6 +302,15 @@ export function DownloadIcon(props: IconProps) {
   );
 }
 
+/** Loading from a file: an arrow up out of a tray (fa-upload). */
+export function UploadIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 3c.3 0 .6.1.8.4l4.5 4.4a1.2 1.2 0 1 1-1.7 1.7l-2.4-2.4v7.9a1.2 1.2 0 1 1-2.4 0V7.1L8.4 9.5a1.2 1.2 0 1 1-1.7-1.7l4.5-4.4c.2-.3.5-.4.8-.4ZM4.2 15.5c.7 0 1.2.5 1.2 1.2v1.9h13.2v-1.9a1.2 1.2 0 1 1 2.4 0v2.5c0 1-.8 1.8-1.8 1.8H4.8C3.8 21 3 20.2 3 19.2v-2.5c0-.7.5-1.2 1.2-1.2Z" />
+    </Svg>
+  );
+}
+
 /** Back to the default values. */
 export function ResetIcon(props: IconProps) {
   return (
@@ -308,6 +350,19 @@ export function TrashIcon(props: IconProps) {
   return (
     <Svg {...props}>
       <path d="M9.4 2.5h5.2c.6 0 1.1.5 1.1 1.1v1.1h4a1 1 0 1 1 0 2h-.7l-.9 12.1a2.2 2.2 0 0 1-2.2 2.1H8.1a2.2 2.2 0 0 1-2.2-2.1L5 6.7h-.7a1 1 0 1 1 0-2h4V3.6c0-.6.5-1.1 1.1-1.1Zm.7 2.2h3.8v-.2h-3.8v.2ZM9.9 9a.8.8 0 0 0-.8.8v7.6a.8.8 0 0 0 1.6 0V9.8a.8.8 0 0 0-.8-.8Zm4.2 0a.8.8 0 0 0-.8.8v7.6a.8.8 0 0 0 1.6 0V9.8a.8.8 0 0 0-.8-.8Z" />
+    </Svg>
+  );
+}
+
+/**
+ * Clusters: three cells packed together, members of one whole. The historical
+ * open ring (ClusterIcon) reads as a loading spinner in a menu; it stays the icon
+ * of the cluster column family.
+ */
+export function HoneycombIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 3.5l3.98 2.3v4.6L12 12.7l-3.98-2.3V5.8ZM7.52 11.3l3.98 2.3v4.6l-3.98 2.3-3.98-2.3v-4.6ZM16.48 11.3l3.98 2.3v4.6l-3.98 2.3-3.98-2.3v-4.6Z" />
     </Svg>
   );
 }
@@ -391,6 +446,28 @@ export function ClockIcon(props: IconProps) {
   return (
     <Svg {...props}>
       <path d="M12 2.5a9.5 9.5 0 1 1 0 19 9.5 9.5 0 0 1 0-19Zm0 2.2a7.3 7.3 0 1 0 0 14.6 7.3 7.3 0 0 0 0-14.6Zm-.1 2.3c.5 0 1 .4 1 1v4.3l3 1.8c.4.3.6.9.3 1.3-.3.5-.9.6-1.3.3l-3.5-2.1a1 1 0 0 1-.5-.9V8a1 1 0 0 1 1-1Z" />
+    </Svg>
+  );
+}
+
+/** A window with a side panel against its left or right edge. */
+export function PanelSideIcon({ side, ...props }: IconProps & { side: "left" | "right" }) {
+  return (
+    <Svg {...props}>
+      <path
+        fillRule="evenodd"
+        d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6c0-1.1.9-2 2-2Zm0 2v12h16V6H4Z"
+      />
+      <path d={side === "left" ? "M5 7h6v10H5z" : "M13 7h6v10h-6z"} />
+    </Svg>
+  );
+}
+
+/** Kinds of things, as opposed to their order in time (fa-shapes). */
+export function ShapesIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M7 2.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9Zm6.5 1.5c0-.6.4-1 1-1h6c.6 0 1 .4 1 1v6c0 .6-.4 1-1 1h-6a1 1 0 0 1-1-1V4Zm-1.6 8.9c.4-.7 1.4-.7 1.8 0l4.9 7.6c.4.7 0 1.5-.9 1.5H7.9c-.8 0-1.3-.8-.9-1.5l4.9-7.6Z" />
     </Svg>
   );
 }
@@ -493,6 +570,87 @@ export function SnowflakeIcon(props: IconProps) {
   return (
     <Svg {...props}>
       <path d="M12 1.8c.6 0 1.1.5 1.1 1.1v1.5l1.3-1.3a1.1 1.1 0 0 1 1.6 1.6l-2.9 2.9v2.5l2.2-1.3 1-4a1.1 1.1 0 1 1 2.2.6l-.5 1.8 1.3-.8a1.1 1.1 0 1 1 1.1 2l-1.3.7 1.8.5a1.1 1.1 0 0 1-.6 2.2l-4-1.1-2.2 1.3 2.2 1.3 4-1.1a1.1 1.1 0 0 1 .6 2.2l-1.8.5 1.3.7a1.1 1.1 0 1 1-1.1 2l-1.3-.8.5 1.8a1.1 1.1 0 1 1-2.2.6l-1-4-2.2-1.3v2.5l2.9 2.9a1.1 1.1 0 0 1-1.6 1.6l-1.3-1.3v1.5a1.1 1.1 0 1 1-2.2 0v-1.5l-1.3 1.3a1.1 1.1 0 0 1-1.6-1.6l2.9-2.9v-2.5l-2.2 1.3-1 4a1.1 1.1 0 1 1-2.2-.6l.5-1.8-1.3.8a1.1 1.1 0 1 1-1.1-2l1.3-.7-1.8-.5a1.1 1.1 0 0 1 .6-2.2l4 1.1 2.2-1.3-2.2-1.3-4 1.1a1.1 1.1 0 1 1-.6-2.2l1.8-.5-1.3-.7a1.1 1.1 0 1 1 1.1-2l1.3.8-.5-1.8a1.1 1.1 0 0 1 2.2-.6l1 4 2.2 1.3V7.6L8 4.7a1.1 1.1 0 0 1 1.6-1.6l1.3 1.3V2.9c0-.6.5-1.1 1.1-1.1Z" />
+    </Svg>
+  );
+}
+
+/** Start: a play triangle (fa-play). */
+export function PlayIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M7.5 3.7c-.8-.5-1.8.1-1.8 1v14.6c0 .9 1 1.5 1.8 1l11.7-7.3c.7-.5.7-1.5 0-2L7.5 3.7Z" />
+    </Svg>
+  );
+}
+
+/** Stop: a filled square (fa-stop). */
+export function StopIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="5" y="5" width="14" height="14" rx="2" />
+    </Svg>
+  );
+}
+
+/** Switch over: two opposed arrows (fa-exchange-alt). */
+export function SwapIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M16.3 2.3a1 1 0 0 1 1.4 0l3.6 3.6a1 1 0 0 1 0 1.4l-3.6 3.6a1 1 0 1 1-1.4-1.4l1.9-1.9H4a1 1 0 1 1 0-2h14.2l-1.9-1.9a1 1 0 0 1 0-1.4ZM7.7 12.7a1 1 0 0 1 0 1.4L5.8 16H20a1 1 0 1 1 0 2H5.8l1.9 1.9a1 1 0 1 1-1.4 1.4l-3.6-3.6a1 1 0 0 1 0-1.4l3.6-3.6a1 1 0 0 1 1.4 0Z" />
+    </Svg>
+  );
+}
+
+/** Enable: a switch turned on (fa-toggle-on). */
+export function ToggleOnIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M7 6h10a6 6 0 1 1 0 12H7A6 6 0 1 1 7 6Zm10 2.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" />
+    </Svg>
+  );
+}
+
+/** Disable: a switch turned off (fa-toggle-off). */
+export function ToggleOffIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M7 6h10a6 6 0 1 1 0 12H7A6 6 0 1 1 7 6Zm0 2a4 4 0 1 0 0 8h10a4 4 0 1 0 0-8H7Zm0 1a3 3 0 1 1 0 6 3 3 0 0 1 0-6Z" />
+    </Svg>
+  );
+}
+
+/** Shutdown: the power symbol struck through, apart from boot's plain one. */
+export function PowerOffIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 2.5c.7 0 1.2.5 1.2 1.2v6.6a1.2 1.2 0 1 1-2.4 0V3.7c0-.7.5-1.2 1.2-1.2ZM6.6 5.6a1.2 1.2 0 0 1 .1 1.7 7 7 0 1 0 10.6 0 1.2 1.2 0 1 1 1.8-1.6 9.4 9.4 0 1 1-14.2 0 1.2 1.2 0 0 1 1.7-.1ZM3.4 2l18.6 18.6-1.4 1.4L2 3.4 3.4 2Z" />
+    </Svg>
+  );
+}
+
+/** Unprovision, block: a circle crossed by a bar (fa-ban). */
+export function BanIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20Zm5.6 4.1L6.1 17.6A7.6 7.6 0 0 0 17.6 6.1ZM12 4.4a7.6 7.6 0 0 0-7.6 7.6c0 1.6.5 3.1 1.3 4.3L16.3 5.7A7.6 7.6 0 0 0 12 4.4Z" />
+    </Svg>
+  );
+}
+
+/** Unfreeze: a sun, as the om3 webapp says it. */
+export function SunIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0-6a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0V2a1 1 0 0 1 1-1Zm0 18a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0v-2a1 1 0 0 1 1-1ZM2 11h2a1 1 0 1 1 0 2H2a1 1 0 1 1 0-2Zm18 0h2a1 1 0 1 1 0 2h-2a1 1 0 1 1 0-2ZM4.9 3.5l1.4 1.4a1 1 0 0 1-1.4 1.4L3.5 4.9a1 1 0 0 1 1.4-1.4Zm12.8 12.8 1.4 1.4a1 1 0 0 1-1.4 1.4l-1.4-1.4a1 1 0 0 1 1.4-1.4ZM19.1 3.5a1 1 0 0 1 0 1.4l-1.4 1.4a1 1 0 0 1-1.4-1.4l1.4-1.4a1 1 0 0 1 1.4 0ZM6.3 16.3a1 1 0 0 1 0 1.4l-1.4 1.4a1 1 0 0 1-1.4-1.4l1.4-1.4a1 1 0 0 1 1.4 0Z" />
+    </Svg>
+  );
+}
+
+/** Drain: a drop, as the om3 webapp says it. */
+export function DropIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 2.3c.4 0 .7.2.9.5 1.4 2.1 6.6 8.5 6.6 12.2a7.5 7.5 0 0 1-15 0c0-3.7 5.2-10.1 6.6-12.2.2-.3.5-.5.9-.5Z" />
     </Svg>
   );
 }
@@ -693,6 +851,132 @@ export function HashIcon(props: IconProps) {
   return (
     <Svg {...props}>
       <path d="M10.2 3.1a1.2 1.2 0 0 1 1 1.4L10.8 8h3.6l.5-3.9a1.2 1.2 0 1 1 2.4.3L16.8 8h2.7a1.2 1.2 0 1 1 0 2.4h-3L16 13.6h2.5a1.2 1.2 0 1 1 0 2.4h-2.8l-.5 3.9a1.2 1.2 0 1 1-2.4-.3l.5-3.6H9.7l-.5 3.9a1.2 1.2 0 1 1-2.4-.3l.5-3.6H4.5a1.2 1.2 0 1 1 0-2.4h3.1l.4-3.2H5.5a1.2 1.2 0 1 1 0-2.4h2.8l.5-3.9a1.2 1.2 0 0 1 1.4-1Zm.3 7.3-.4 3.2h3.6l.4-3.2h-3.6Z" />
+    </Svg>
+  );
+}
+
+/** The operator menu: a pulse, watching what runs. */
+export function PulseIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path
+        d="M2.5 13h4.3l2.6-6.6 4.6 11.4 2.8-6.3h4.7"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+/** The admin menu: three sliders, setting things up. */
+export function SlidersIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="3" y="5" width="18" height="2.4" rx="1.2" />
+      <rect x="3" y="10.8" width="18" height="2.4" rx="1.2" />
+      <rect x="3" y="16.6" width="18" height="2.4" rx="1.2" />
+      <circle cx="9" cy="6.2" r="2.9" />
+      <circle cx="15.5" cy="12" r="2.9" />
+      <circle cx="7.5" cy="17.8" r="2.9" />
+    </Svg>
+  );
+}
+
+/** The dashboard view: four tiles of a dashboard layout. */
+export function DashboardIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="3" y="3" width="8" height="10" rx="1.6" />
+      <rect x="13" y="3" width="8" height="6" rx="1.6" />
+      <rect x="13" y="11" width="8" height="10" rx="1.6" />
+      <rect x="3" y="15" width="8" height="6" rx="1.6" />
+    </Svg>
+  );
+}
+
+/** The AI assistant: a large four-pointed spark and two small ones. */
+export function SparklesIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M9.5 3c.6 4.2 2.8 6.4 7 7-4.2.6-6.4 2.8-7 7-.6-4.2-2.8-6.4-7-7 4.2-.6 6.4-2.8 7-7Z" />
+      <path d="M18.5 13.5c.3 1.9 1.2 2.8 3 3-1.8.3-2.7 1.2-3 3-.3-1.8-1.2-2.7-3-3 1.8-.2 2.7-1.1 3-3Z" />
+      <path d="M18 2.5c.2 1.3.8 1.9 2 2-1.2.2-1.8.8-2 2-.2-1.2-.8-1.8-2-2 1.2-.1 1.8-.7 2-2Z" />
+    </Svg>
+  );
+}
+
+/** Sending a message: an arrow pointing up. */
+export function SendIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 3.6 19.4 11 18 12.4l-5-5V20.5h-2V7.4l-5 5L4.6 11 12 3.6Z" />
+    </Svg>
+  );
+}
+
+/** Hidden, an eye struck through (fa-eye-slash): a menu entry a group hides. */
+export function EyeOffIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M2.3 3.7a1 1 0 0 1 1.4-1.4l18 18a1 1 0 0 1-1.4 1.4l-3.1-3.1A10.4 10.4 0 0 1 12 20C6.5 20 2.6 15.6 1.2 12.6a1.5 1.5 0 0 1 0-1.2 15 15 0 0 1 3.7-4.9L2.3 3.7Zm4 4A12.5 12.5 0 0 0 3.3 12c1.3 2.5 4.6 5.8 8.7 5.8 1.5 0 2.9-.4 4.1-1.1l-2-2a3.5 3.5 0 0 1-4.8-4.8L6.3 7.7Zm5.7-1.5c-.5 0-1 0-1.4.1L8.8 4.5A10.6 10.6 0 0 1 12 4c5.5 0 9.4 4.4 10.8 7.4.2.4.2.8 0 1.2a14.8 14.8 0 0 1-2.7 3.7l-1.6-1.6a12.6 12.6 0 0 0 2.2-2.7C19.4 9.5 16.1 6.2 12 6.2Z" />
+    </Svg>
+  );
+}
+
+/** Documentation, a book (fa-book): the OpenSVC manual. */
+export function BookIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M6.5 2H19a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H6.5a1.5 1.5 0 0 0 0 3H19a1 1 0 1 1 0 2H6.5A3.5 3.5 0 0 1 3 20.5v-15A3.5 3.5 0 0 1 6.5 2Zm1.5 4a1 1 0 0 0 0 2h8a1 1 0 1 0 0-2H8Zm0 4a1 1 0 0 0 0 2h5a1 1 0 1 0 0-2H8Z" />
+    </Svg>
+  );
+}
+
+export function InfoIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 5a1.25 1.25 0 1 1 0 2.5A1.25 1.25 0 0 1 12 7Zm1.5 10h-3a1 1 0 1 1 0-2h.5v-3h-.5a1 1 0 1 1 0-2H12a1 1 0 0 1 1 1v4h.5a1 1 0 1 1 0 2Z" />
+    </Svg>
+  );
+}
+
+export function ExternalLinkIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M5 4a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5a1 1 0 1 1 2 0v5a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3h5a1 1 0 1 1 0 2H5Zm9-2h7a1 1 0 0 1 1 1v7a1 1 0 1 1-2 0V5.4l-8.3 8.3a1 1 0 0 1-1.4-1.4L18.6 4H14a1 1 0 1 1 0-2Z" />
+    </Svg>
+  );
+}
+
+const THUMB =
+  "M1 21h4V9H1v12Zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2Z";
+
+/** A helpful answer, in the assistant (after Material Icons' thumb_up, Apache 2.0). */
+export function ThumbsUpIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d={THUMB} />
+    </Svg>
+  );
+}
+
+/** An answer that falls short, in the assistant: the thumb up, turned over. */
+export function ThumbsDownIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d={THUMB} transform="rotate(180 12 12)" />
+    </Svg>
+  );
+}
+
+/** Values allowed for an attribute: a list, its entries ticked (fa-list-check). */
+export function ListChecksIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M8.3 3.3a1.1 1.1 0 0 1 0 1.6L5.1 8.1a1.1 1.1 0 0 1-1.6 0L1.9 6.5a1.1 1.1 0 1 1 1.6-1.6l.8.8 2.4-2.4a1.1 1.1 0 0 1 1.6 0Zm0 7a1.1 1.1 0 0 1 0 1.6l-3.2 3.2a1.1 1.1 0 0 1-1.6 0l-1.6-1.6a1.1 1.1 0 1 1 1.6-1.6l.8.8 2.4-2.4a1.1 1.1 0 0 1 1.6 0ZM11 5.5c0-.8.7-1.5 1.5-1.5h8a1.5 1.5 0 0 1 0 3h-8c-.8 0-1.5-.7-1.5-1.5Zm0 7c0-.8.7-1.5 1.5-1.5h8a1.5 1.5 0 0 1 0 3h-8c-.8 0-1.5-.7-1.5-1.5ZM4.5 17.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm6.5 2c0-.8.7-1.5 1.5-1.5h8a1.5 1.5 0 0 1 0 3h-8c-.8 0-1.5-.7-1.5-1.5Z" />
     </Svg>
   );
 }

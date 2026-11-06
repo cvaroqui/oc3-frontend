@@ -1,6 +1,9 @@
+import { useEffect, useState } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
+import { useAnyPanelOpen } from "@/components/ui/slide-over-open";
 import { NodeDetailPanel } from "@/features/nodes/NodeDetailPanel";
 import { ServiceDetailPanel } from "@/features/services/ServiceDetailPanel";
+import { ResourceDetailPanel } from "@/features/resources/ResourceDetailPanel";
 import { InstanceDetailPanel } from "@/features/instances/InstanceDetailPanel";
 import { AppDetailPanel } from "@/features/apps/AppDetailPanel";
 import { DiskDetailPanel } from "@/features/disks/DiskDetailPanel";
@@ -16,6 +19,7 @@ import { ClusterDetailPanel } from "@/features/clusters/ClusterDetailPanel";
 import { ReportDetailPanel } from "@/features/reports/ReportDetailPanel";
 import { ModulesetDetailPanel } from "@/features/modulesets/ModulesetDetailPanel";
 import { RulesetDetailPanel } from "@/features/rulesets/RulesetDetailPanel";
+import { SafeDetailPanel } from "@/features/safe/SafeDetailPanel";
 import { useTag } from "@/features/tags/use-tag";
 import { currentIndex, parseTrail } from "@/lib/peek-trail";
 import { isPeekStep } from "@/components/opensvc/panel-trail";
@@ -67,7 +71,35 @@ export function PeekPanel() {
     update({ peektab: next });
   };
 
-  const id = current?.id;
+  // The record last shown stays mounted once closed, for its panel to slide out
+  // rather than vanish.
+  const [kept, setKept] = useState(current);
+  if (current !== undefined && (kept?.kind !== current.kind || kept.id !== current.id))
+    setKept(current);
+  // Opened while no side panel is: mounted closed first, opened on the next
+  // frames, for the panel to slide in. Another record in an open panel shows at once.
+  const anyOpen = useAnyPanelOpen();
+  const shown = current !== undefined;
+  const [wasShown, setWasShown] = useState(shown);
+  const [held, setHeld] = useState(false);
+  if (shown !== wasShown) {
+    setWasShown(shown);
+    setHeld(shown && !anyOpen);
+  }
+  useEffect(() => {
+    if (!held) return;
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => {
+        setHeld(false);
+      });
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+    };
+  }, [held]);
+  const step = current ?? kept;
+  // Closed, or about to open: the panel of the record, without its record.
+  const id = held ? undefined : current?.id;
   // The name the title pills show, known before the record itself has loaded: the
   // panel uses it until its own title is read.
   const labels = useObjectLabels(trail);
@@ -76,7 +108,7 @@ export function PeekPanel() {
   const readableId = current?.kind === "app" || current?.kind === "disk";
   const label = labels[at] === id && !readableId ? "" : (labels[at] ?? "");
   const panel = (() => {
-    switch (current?.kind) {
+    switch (step?.kind) {
       case "node":
         return (
           <NodeDetailPanel
@@ -107,10 +139,20 @@ export function PeekPanel() {
             onClose={close}
           />
         );
+      case "resource":
+        return <ResourceDetailPanel resourceId={id} label={label} onClose={close} />;
       case "app":
         return <AppDetailPanel appId={id} label={label} onClose={close} />;
       case "group":
-        return <GroupDetailPanel groupId={id} label={label} onClose={close} />;
+        return (
+          <GroupDetailPanel
+            groupId={id}
+            label={label}
+            tab={tab}
+            onTabChange={onTabChange}
+            onClose={close}
+          />
+        );
       case "user":
         return <UserDetailPanel userId={id} label={label} onClose={close} />;
       case "disk":
@@ -118,7 +160,15 @@ export function PeekPanel() {
       case "network":
         return <NetworkDetailPanel ipId={id} label={label} onClose={close} />;
       case "filterset":
-        return <FiltersetDetailPanel filtersetId={id} label={label} onClose={close} />;
+        return (
+          <FiltersetDetailPanel
+            filtersetId={id}
+            label={label}
+            tab={tab}
+            onTabChange={onTabChange}
+            onClose={close}
+          />
+        );
       case "form":
         return (
           <FormDetailPanel
@@ -166,6 +216,16 @@ export function PeekPanel() {
         return <ModulesetDetailPanel modsetId={id} label={label} onClose={close} />;
       case "ruleset":
         return <RulesetDetailPanel rsetId={id} label={label} onClose={close} />;
+      case "safe":
+        return (
+          <SafeDetailPanel
+            fileId={id}
+            label={label}
+            tab={tab}
+            onTabChange={onTabChange}
+            onClose={close}
+          />
+        );
       default:
         return null;
     }

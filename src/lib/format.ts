@@ -1,3 +1,5 @@
+import { dateTimeFormat } from "./date-format";
+
 /**
  * Formatting of collector values. The units and date formats come from the historical
  * database: this is where their quirks are absorbed.
@@ -17,6 +19,30 @@ export function formatSizeMiB(value: number | undefined, locale: string): string
 }
 
 /**
+ * A size in bytes, as the backups count it (`save_size`): in KiB below the
+ * mebibyte, then as `formatCapacityMiB`.
+ */
+export function formatSizeBytes(value: number | undefined, locale: string): string {
+  if (value === undefined || value <= 0) return "";
+  if (value < 1024) return `${value.toLocaleString(locale)} B`;
+  if (value < 1024 * 1024)
+    return `${(value / 1024).toLocaleString(locale, { maximumFractionDigits: 0 })} KiB`;
+  const mib = value / (1024 * 1024);
+  if (mib < 1024) return `${mib.toLocaleString(locale, { maximumFractionDigits: 0 })} MiB`;
+  return formatCapacityMiB(mib, locale);
+}
+
+/**
+ * A capacity of a storage array, in mebibytes as `formatSizeMiB`, but in
+ * tebibytes from one: arrays and their quotas count in hundreds of them.
+ */
+export function formatCapacityMiB(value: number | undefined, locale: string): string {
+  if (value === undefined || value < 1024 * 1024) return formatSizeMiB(value, locale);
+  const tib = value / (1024 * 1024);
+  return `${tib.toLocaleString(locale, { maximumFractionDigits: tib < 100 ? 1 : 0 })} TiB`;
+}
+
+/**
  * The collector returns "2026-09-15 15:06:23.000", which is not ISO 8601: without the
  * T, Safari refuses to parse it.
  *
@@ -30,23 +56,26 @@ export function parseCollectorDate(value: string | undefined): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-/** Localised date and time, or the value as it is when it is not one. */
-export function formatDateTime(value: string | undefined, locale: string): string {
+/**
+ * Date and time as the user's preferences read them (`dateTimeFormat`), or the
+ * value as it is when it is not one.
+ */
+export function formatDateTime(value: string | undefined): string {
   if (value === undefined || value === "") return "";
   const parsed = parseCollectorDate(value);
   if (parsed === null) return value;
-  return parsed.toLocaleString(locale, { dateStyle: "short", timeStyle: "medium" });
+  return dateTimeFormat({ dateStyle: "short", timeStyle: "medium" }).format(parsed);
 }
 
 /**
  * Date alone, localised, for deadlines whose time says nothing: obsolescence dates
  * are entered by the day and stored at midnight.
  */
-export function formatDate(value: string | undefined, locale: string): string {
+export function formatDate(value: string | undefined): string {
   if (value === undefined || value === "") return "";
   const parsed = parseCollectorDate(value);
   if (parsed === null) return value;
-  return parsed.toLocaleDateString(locale, { dateStyle: "medium" });
+  return dateTimeFormat({ dateStyle: "medium" }).format(parsed);
 }
 
 /** Steps from the largest to the smallest, in seconds. */
@@ -75,7 +104,16 @@ export function formatRelativeTime(
   if (value === undefined || value === "") return "";
   const parsed = parseCollectorDate(value);
   if (parsed === null) return value;
-  const seconds = (parsed.getTime() - now) / 1000;
+  return formatRelativeInstant(parsed.getTime(), locale, now);
+}
+
+/** `formatRelativeTime` for an instant in milliseconds since the epoch. */
+export function formatRelativeInstant(
+  at: number,
+  locale: string,
+  now: number = Date.now(),
+): string {
+  const seconds = (at - now) / 1000;
   const absolute = Math.abs(seconds);
   const format = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
   for (const [unit, size] of RELATIVE_UNITS) {

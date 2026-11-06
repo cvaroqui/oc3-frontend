@@ -1,18 +1,22 @@
 import { useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { DateTime } from "@/components/ui/DateTime";
-import { RelativeTime } from "@/components/ui/RelativeTime";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import type { components } from "@/lib/api/schema";
+import type { FiltersetSource } from "@/lib/filterset-entries";
 import { api } from "@/lib/api/client";
 import { toPage } from "@/lib/api/page";
 import { problemText } from "@/lib/api/problem";
-import { useFiltersets } from "@/lib/api/filtersets";
 import { CollectorList, type ListColumn } from "@/components/opensvc/CollectorList";
 import { CrossLink } from "@/components/opensvc/CrossLink";
 import { FrozenMark } from "@/components/opensvc/FrozenMark";
-import { frozenFilterOptions, STATUS_FILTER_OPTIONS } from "@/components/opensvc/filter-options";
+import {
+  BIT_FLAG_FILTER_OPTIONS,
+  frozenFilterOptions,
+  STATUS_FILTER_OPTIONS,
+} from "@/components/opensvc/filter-options";
+import { FlagSwitch } from "@/components/opensvc/FlagSwitch";
 import { ServiceActionsMenu } from "./ServiceActionsMenu";
 import { ObjectIcon } from "@/components/opensvc/ObjectIcon";
 import type { ColumnFamily } from "@/components/opensvc/ColumnFamily";
@@ -33,67 +37,78 @@ import { useViewPrefs, withSavedSearch } from "@/lib/user-prefs";
 import { ServiceDetailPanel } from "./ServiceDetailPanel";
 import { AvailabilityRate } from "@/components/opensvc/AvailabilityRate";
 import { formatPercent } from "@/lib/format";
+import { useNow } from "@/lib/use-now";
+import { isOutdated, REPORTING_TICK_MS } from "@/components/opensvc/reporting";
+import { LastReport } from "@/components/opensvc/LastReport";
 
 type ServiceRow = components["schemas"]["ServiceRow"];
 
 const DEFAULT_SORT = ["svcname"];
 
 /**
- * Every service property exposed by apicollector, in the order of its
- * `meta.available_props`. `satisfies` confronts them with the generated schema: a
- * prop renamed on the oc3 side breaks the typecheck instead of disappearing
- * silently.
+ * Every service property exposed by apicollector, in the column order of the
+ * historical collector's services table (`table_services` in `tables.js`), the
+ * props it did not have next to their kin: the order of the columns on display and
+ * in the export, whatever the columns chosen. `satisfies` confronts them with the
+ * generated schema: a prop renamed on the oc3 side breaks the typecheck instead of
+ * disappearing silently.
  */
 const SERVICE_PROPS = [
   "id",
   "svc_id",
-  "svcname",
   "cluster_id",
+  "svc_hostid",
+  "svcname",
   "svc_status",
   "svc_availstatus",
+  "svc_frozen",
+  "svc_provisioned",
+  "svc_placement",
   "svc_app",
   "svc_env",
   "svc_ha",
   "svc_topology",
-  "svc_frozen",
-  "svc_placement",
-  "svc_provisioned",
   "svc_flex_min_nodes",
   "svc_flex_max_nodes",
   "svc_flex_target",
   "svc_flex_cpu_low_threshold",
   "svc_flex_cpu_high_threshold",
+  "svc_drptype",
   "svc_autostart",
+  "svc_wave",
   "svc_nodes",
   "svc_drpnode",
   "svc_drpnodes",
-  "svc_drptype",
-  "svc_comment",
-  "svc_created",
-  "svc_status_updated",
-  "svc_hostid",
-  "svc_wave",
-  "svc_config",
-  "svc_config_updated",
   "svc_metrocluster",
   "svc_drnoaction",
   "svc_notifications",
   "svc_snooze_till",
+  "svc_comment",
+  "svc_config",
+  "svc_config_updated",
+  "svc_created",
+  "svc_status_updated",
   "svc_sla",
   "svc_availability",
   "svc_availability_updated",
   "updated",
 ] as const satisfies readonly (keyof ServiceRow)[];
 
-/** Columns shown by default: the identity of the service and its state. */
+/**
+ * Columns shown by default, those of the historical collector's services table
+ * (`default_columns` of `table_services`), in the order of SERVICE_PROPS.
+ */
 const DEFAULT_COLS: string[] = [
   "svcname",
-  "svc_availstatus",
   "svc_status",
-  "svc_app",
-  "svc_sla",
-  "svc_availability",
+  "svc_availstatus",
+  "svc_frozen",
+  "svc_provisioned",
+  "svc_placement",
+  "svc_ha",
+  "svc_topology",
   "svc_status_updated",
+  "updated",
 ];
 
 /** Integer props of the oc3 `service` mapping (the `colInt` and `col` helpers), aligned right. */
@@ -101,7 +116,6 @@ const NUMERIC_PROPS = new Set<string>([
   "id",
   "svc_sla",
   "svc_availability",
-  "svc_ha",
   "svc_wave",
   "svc_flex_min_nodes",
   "svc_flex_max_nodes",
@@ -167,7 +181,8 @@ const FAMILY: Record<string, ColumnFamily> = {
 
 /**
  * Columns holding one value per service, the ids by constraint, the name in
- * practice: their distribution would only list each service once.
+ * practice: the comparison of a selection leaves them out, as they would only
+ * tell the services apart.
  */
 const UNIQUE_PROPS = new Set<string>(["id", "svc_id", "svcname"]);
 
@@ -176,12 +191,13 @@ const COLUMNS: ListColumn<ServiceRow>[] = SERVICE_PROPS.map((prop) => ({
   labelKey: `services.fields.${prop}`,
   numeric: NUMERIC_PROPS.has(prop),
   family: FAMILY[prop] ?? "node",
-  distribution: UNIQUE_PROPS.has(prop) ? false : undefined,
   filter: STATUS_PROPS.has(prop)
     ? { kind: "enum" as const, options: STATUS_FILTER_OPTIONS }
     : prop === "svc_frozen"
       ? { kind: "enum" as const, options: frozenFilterOptions("frozen", "unfrozen", "mixed") }
-      : undefined,
+      : prop === "svc_ha"
+        ? { kind: "enum" as const, options: BIT_FLAG_FILTER_OPTIONS }
+        : undefined,
   render: (row: ServiceRow, locale: string) => {
     const value = row[prop];
     if (prop === "svc_app")
@@ -191,19 +207,36 @@ const COLUMNS: ListColumn<ServiceRow>[] = SERVICE_PROPS.map((prop) => ({
         </CrossLink>
       );
     if (STATUS_PROPS.has(prop) && typeof value === "string") {
-      return <StatusBadge {...statusBadge(value)} />;
+      return (
+        <StatusBadge
+          {...statusBadge(value)}
+          outdated={isOutdated(row.svc_status_updated, Date.now())}
+        />
+      );
     }
+    if (prop === "svc_ha")
+      return <FlagSwitch value={row.svc_ha} labelKey="services.fields.svc_ha" />;
     if (prop === "svc_sla")
       return typeof value === "number" ? formatPercent(value, locale, 3) : null;
     if (prop === "svc_availability")
       return typeof value === "number" ? (
-        <AvailabilityRate rate={value} sla={row.svc_sla} locale={locale} />
+        <AvailabilityRate
+          rate={value}
+          sla={row.svc_sla}
+          trend={row.svc_availability_trend}
+          locale={locale}
+        />
       ) : null;
     // Like the last contact of a node: what counts is the age of the status.
-    if (prop === "svc_status_updated" && typeof value === "string")
-      return <RelativeTime value={value} locale={locale} />;
-    if (DATE_PROPS.has(prop) && typeof value === "string")
-      return <DateTime value={value} locale={locale} />;
+    if (prop === "svc_status_updated")
+      return (
+        <LastReport
+          value={row.svc_status_updated}
+          locale={locale}
+          outdated={isOutdated(row.svc_status_updated, Date.now())}
+        />
+      );
+    if (DATE_PROPS.has(prop) && typeof value === "string") return <DateTime value={value} />;
     return value;
   },
 }));
@@ -211,12 +244,18 @@ const COLUMNS: ListColumn<ServiceRow>[] = SERVICE_PROPS.map((prop) => ({
 const ALL_PROPS = COLUMNS.map((column) => column.prop);
 
 /** Ask only for the columns shown: apicollector pushes the selection down to the database. */
-/** `svc_frozen` is always requested: freezing is marked even with the column hidden. */
+/**
+ * `svc_frozen` and `svc_status_updated` are always requested: freezing and an
+ * outdated status are marked even with their columns hidden.
+ */
 function queryProps(cols: string[] | undefined): string {
   const shown = visibleProps(cols, DEFAULT_COLS, ALL_PROPS);
-  // The SLA goes with the availability, which is flagged against it.
-  const withSla = shown.includes("svc_availability") ? ["svc_sla"] : [];
-  return [...new Set(["svc_id", "svc_frozen", ...withSla, ...shown])].join(",");
+  // The SLA and the trend go with the availability, flagged against the one and
+  // followed by the arrow of the other.
+  const withSla = shown.includes("svc_availability") ? ["svc_sla", "svc_availability_trend"] : [];
+  return [...new Set(["svc_id", "svc_frozen", "svc_status_updated", ...withSla, ...shown])].join(
+    ",",
+  );
 }
 
 /**
@@ -232,33 +271,19 @@ async function fetchServices(search: ResolvedListSearch) {
     limit: search.limit + 1,
     filter: filterQuery(search.filters),
   };
-  const response =
-    search.fset === ""
-      ? await api.GET("/services", { params: { query } })
-      : await api.GET("/filtersets/{filterset_id}/services", {
-          params: { path: { filterset_id: search.fset }, query },
-        });
+  const response = await api.GET("/services", { params: { query } });
   if (response.error !== undefined) throw new Error(problemText(response.error));
   const all: ServiceRow[] = Array.isArray(response.data.data) ? response.data.data : [];
   return toPage(all, response.data.meta, search.limit);
 }
 
 /**
- * The distribution of a column's values over the selection: the filterset of
- * `search` and the filters given apply, not the pagination.
+ * The distribution of a column's values over the selection: the filters given
+ * apply, not the pagination.
  */
-async function serviceStats(
-  search: ResolvedListSearch,
-  prop: string,
-  filters: ColumnFilters,
-): Promise<ValueStats> {
+async function serviceStats(prop: string, filters: ColumnFilters): Promise<ValueStats> {
   const query = { props: prop, stats: "1", limit: STATS_LIMIT, filter: filterQuery(filters) };
-  const response =
-    search.fset === ""
-      ? await api.GET("/services", { params: { query } })
-      : await api.GET("/filtersets/{filterset_id}/services", {
-          params: { path: { filterset_id: search.fset }, query },
-        });
+  const response = await api.GET("/services", { params: { query } });
   if (response.error !== undefined) throw new Error(problemText(response.error));
   return toValueStats(response.data.data, response.data.meta, prop);
 }
@@ -286,7 +311,6 @@ function useServices(search: ResolvedListSearch) {
       search.sort,
       search.offset,
       search.limit,
-      search.fset,
       search.cols,
       filtersKey(search.filters),
     ],
@@ -297,6 +321,12 @@ function useServices(search: ResolvedListSearch) {
   });
 }
 
+/**
+ * Filters saved as a filterset (SaveAsFilterset). Services filter on their own
+ * columns: the filterset selects them.
+ */
+const FILTERSET_SOURCE: FiltersetSource = { table: "services", selects: "services" };
+
 export function ServicesPage() {
   const { t } = useTranslation();
   const prefs = useViewPrefs("services");
@@ -306,7 +336,8 @@ export function ServicesPage() {
   );
   const navigate = useNavigate({ from: "/services" });
   const { data, isPending, isError, error, isFetching } = useServices(search);
-  const filtersets = useFiltersets();
+  // Rows age without the data changing: the outdated statuses are worked out again.
+  useNow(REPORTING_TICK_MS);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   // The services the last deletion removed, unticked from the list.
   const [deleted, setDeleted] = useState<string[]>([]);
@@ -314,15 +345,10 @@ export function ServicesPage() {
   // The selection narrowed from its comparison, ticked in the list.
   const [reselect, setReselect] = useState<string[] | undefined>(undefined);
 
-  /** Ids of the whole selection, filterset and filters included, without pagination. */
+  /** Ids of the whole selection, filters included, without pagination. */
   async function allIds(): Promise<string[]> {
     const query = { props: "svc_id", limit: 0, filter: filterQuery(search.filters) };
-    const response =
-      search.fset === ""
-        ? await api.GET("/services", { params: { query } })
-        : await api.GET("/filtersets/{filterset_id}/services", {
-            params: { path: { filterset_id: search.fset }, query },
-          });
+    const response = await api.GET("/services", { params: { query } });
     if (response.error !== undefined) throw new Error(problemText(response.error));
     const rows: ServiceRow[] = Array.isArray(response.data.data) ? response.data.data : [];
     return rows.map((row) => row.svc_id).filter((id): id is string => id !== undefined);
@@ -349,7 +375,8 @@ export function ServicesPage() {
 
   return (
     <section>
-      <div className="mb-3 flex items-center gap-3">
+      {/* As tall as the Actions button from the start: checking a row must not push the list down. */}
+      <div className="mb-3 flex min-h-7 items-center gap-3">
         <h1 className="flex items-center gap-2 text-title font-semibold">
           <ObjectIcon kind="service" className="h-5 w-5" />
           {t("services.title")}
@@ -371,13 +398,13 @@ export function ServicesPage() {
       </div>
 
       <CollectorList
+        viewPrefs={prefs}
         columns={COLUMNS}
         defaultCols={DEFAULT_COLS}
         rows={data?.rows ?? []}
         rowId={(row) => row.svc_id}
         search={search}
         onChange={update}
-        filtersets={filtersets.data ?? []}
         isPending={isPending}
         isFetching={isFetching}
         errorMessage={isError ? error.message : null}
@@ -389,8 +416,9 @@ export function ServicesPage() {
         selectAllMatching={allIds}
         unselect={deleted}
         reselect={reselect}
-        valueStats={(prop, filters) => serviceStats(search, prop, filters)}
+        valueStats={serviceStats}
         filterable
+        filtersetSource={FILTERSET_SOURCE}
       />
 
       <CommonalityPanel

@@ -52,7 +52,7 @@ const GROUPS: DetailGroup<ModulesetRow>[] = [
       {
         prop: "modset_updated",
         format: text("modset_updated"),
-        render: (row, locale) => <DateTime value={row.modset_updated} locale={locale} />,
+        render: (row) => <DateTime value={row.modset_updated} />,
       },
       { prop: "id", format: text("id") },
     ],
@@ -156,7 +156,7 @@ function ModulesetContent({
   busy: boolean;
   change: RunChange;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const rulesets = useCompObjects("ruleset");
   const modulesets = useCompObjects("moduleset");
   const groups = useComplianceGroups();
@@ -202,6 +202,7 @@ function ModulesetContent({
                   <td className="py-1 pr-3">
                     <Switch
                       checked={mod.autofix}
+                      size="sm"
                       disabled={!editable || busy}
                       label={t("modulesets.detail.autofixOf", { name: mod.name })}
                       stateLabel={t(mod.autofix ? "detail.yes" : "detail.no")}
@@ -225,7 +226,7 @@ function ModulesetContent({
                     />
                   </td>
                   <td className="py-1 pr-3 whitespace-nowrap text-ink-muted">
-                    <DateTime value={mod.updated} locale={i18n.language} />
+                    <DateTime value={mod.updated} />
                   </td>
                   {editable && (
                     <td className="py-1 text-right">

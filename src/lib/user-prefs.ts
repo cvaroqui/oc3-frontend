@@ -1,9 +1,19 @@
+import {
+  applyDateFormat,
+  cachedDateFormat,
+  isDateFormatChoice,
+  isHourCycleChoice,
+  type DateFormatChoice,
+  type DateFormatPrefs,
+  type HourCycleChoice,
+} from "./date-format";
 import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { api } from "./api/client";
 import { problemText } from "./api/problem";
 import { FILTER_KEY_PREFIX, filterKey, type ColumnFilters } from "./column-filters";
 import { DEFAULT_LIMIT, PAGE_SIZES, type ListSearch, type ResolvedListSearch } from "./list-search";
+import { useTabViewPrefs, type TabViewPrefs } from "./tab-view-prefs";
 import {
   applyPalette,
   applyTheme,
@@ -15,6 +25,13 @@ import {
   type Palette,
   type Theme,
 } from "./theme";
+import {
+  applyLanguage,
+  cachedLanguage,
+  isLanguageChoice,
+  watchBrowserLanguage,
+  type LanguageChoice,
+} from "./language";
 
 /**
  * User preferences, as the historical collector keeps them in the `prefs` column of
@@ -32,7 +49,7 @@ import {
  * The rest of the object — the old column filters, live mode, hidden menu entries —
  * belongs to the old interface: it is read back and stored again untouched.
  */
-/** Preferences of a view: what follows the account rather than the URL. */
+/** The defaults of a view, kept with the account: what new tabs open the list with. */
 export interface ViewPrefs {
   visible_columns?: string[];
   /** Sort keys, prefixed with `-` for descending order, as in the URL. */
@@ -59,10 +76,15 @@ export interface UserPrefs {
   /** Chosen colour palette; absent means "standard". */
   palette?: string;
   /**
+   * Chosen language of the interface, "en" or "fr"; absent means the browser's
+   * ("system"), which is never stored. The old interface has no such choice.
+   */
+  language?: string;
+  /**
    * The side menu: the keys of the collapsed sections. Absent, every section is
    * expanded. The old interface does not fold its menu, so the key is ours alone.
    */
-  nav?: { collapsed?: string[] };
+  nav?: { collapsed?: string[]; view?: string };
   /**
    * The records the user bookmarked, oldest first, each named by its kind and its
    * id. The old interface has no bookmarks: the key is ours alone.
@@ -73,6 +95,24 @@ export interface UserPrefs {
    * first, by form id. The old interface has neither: the key is ours alone.
    */
   requests?: { favorites?: number[]; recent?: number[] };
+  /**
+   * How the panel history groups its records: "kind" by kind of object; absent, by
+   * how long ago they were shown. Not under `history`, an obsolete key once holding
+   * the history itself. The old interface has no panel history.
+   */
+  historyGrouping?: string;
+  /**
+   * The edge of the window the detail panels open against: "left"; absent, the
+   * right one. The old interface has no such choice.
+   */
+  panelSide?: string;
+  /**
+   * How dates read: a convention of `DATE_FORMATS` (`src/lib/date-format.ts`);
+   * absent, the browser's regional settings. The old interface has no such choice.
+   */
+  dateFormat?: string;
+  /** The clock of the times, "h23" or "h12"; absent, the one of the date format. */
+  hourCycle?: string;
   [key: string]: unknown;
 }
 
@@ -83,9 +123,6 @@ export interface Bookmark {
 }
 
 const PREFS_KEY = ["user", "self", "prefs"];
-
-/** Write delay, as in the old collector: ticking three columns writes only once. */
-const SAVE_DELAY = 1500;
 
 function asPrefs(value: unknown): UserPrefs {
   return typeof value === "object" && value !== null ? (value as UserPrefs) : {};
@@ -104,110 +141,119 @@ export function useUserPrefs() {
   return useQuery({ queryKey: PREFS_KEY, queryFn: fetchPrefs, staleTime: 5 * 60 * 1000 });
 }
 
+/** The settings of a list: what the URL may leave out, filled in from the defaults. */
+export interface ViewSettings {
+  cols?: string[];
+  sort?: string[];
+  filters?: ColumnFilters;
+  limit?: number;
+}
+
+/** Whether two settings of a list are the same, an empty one being no setting. */
+function sameSetting(a: unknown, b: unknown): boolean {
+  const norm = (v: unknown) =>
+    v === null ||
+    v === undefined ||
+    (Array.isArray(v) && v.length === 0) ||
+    (typeof v === "object" && Object.keys(v).length === 0)
+      ? undefined
+      : JSON.stringify(v);
+  return norm(a) === norm(b);
+}
+
 /**
- * Columns, sort, filters and page size saved for a view, and what it takes to update
- * them.
+ * Columns, sort, filters and page size of a list, and what it takes to change them.
+ *
+ * A change applies to this browser tab only (`useTabViewPrefs`): two tabs may show
+ * the same list their own way. The account keeps the user's defaults, under
+ * `tables.<view>`, which a tab follows for whatever it did not change, and which
+ * change only when the user saves a tab's settings as their default
+ * (`saveAsDefault`), new tabs then opening with them.
  *
  * The URL keeps priority: a shared link shows its columns, its sort and its filters,
- * not those of whoever opens it. Preferences therefore only serve when the URL carries
- * none, and going back to the defaults clears the saved entry.
+ * not those of whoever opens it. These settings therefore only serve when the URL
+ * carries none.
  */
 export function useViewPrefs(view: string) {
   const queryClient = useQueryClient();
   const prefs = useUserPrefs();
-
-  function save<K extends keyof ViewPrefs>(key: K, value: ViewPrefs[K]) {
-    const empty =
-      value === undefined ||
-      (typeof value === "object" &&
-        (Array.isArray(value) ? value.length === 0 : Object.keys(value).length === 0));
-    schedule(queryClient, `${view}:${key}`, (current) => {
-      const tables = { ...current.tables };
-      const entry: ViewPrefs = { ...tables[view] };
-      if (empty) {
-        delete entry[key];
-      } else {
-        entry[key] = value;
-      }
-      if (Object.keys(entry).length === 0) {
-        delete tables[view];
-      } else {
-        tables[view] = entry;
-      }
-      return { ...current, tables };
-    });
-  }
-
+  const tab = useTabViewPrefs(view);
   const entry = prefs.data?.tables?.[view];
-  const saveCols = (cols: string[] | undefined) => {
-    save("visible_columns", cols);
-  };
-  const saveSort = (sort: string[] | undefined) => {
-    save("sort", sort);
-  };
-  const saveFilters = (filters: ColumnFilters | undefined) => {
-    save("column_filters", filters);
-  };
-  /** The default page size is not saved: it clears the entry. */
-  const saveLimit = (limit: number | undefined) => {
-    save("perpage", limit === DEFAULT_LIMIT ? undefined : limit);
-  };
-  return {
+  const defaults: ViewSettings = {
     cols: entry?.visible_columns,
     sort: entry?.sort,
     filters: entry?.column_filters,
     limit: savedLimit(entry?.perpage),
-    saveCols,
-    saveSort,
-    saveFilters,
-    saveLimit,
+  };
+  const own = tab.entry;
+  // A setting changed in the tab overrides the default, null meaning the built-in.
+  const pick = <K extends keyof ViewSettings>(key: K): ViewSettings[K] =>
+    own !== undefined && key in own ? ((own[key] ?? undefined) as ViewSettings[K]) : defaults[key];
+  const customized =
+    own !== undefined &&
+    (Object.keys(own) as (keyof ViewSettings)[]).some(
+      (key) => !sameSetting(pick(key), defaults[key]),
+    );
+
+  return {
+    cols: pick("cols"),
+    sort: pick("sort"),
+    filters: pick("filters"),
+    limit: pick("limit"),
+    /** The account's defaults, which new tabs open with. */
+    defaults,
+    /** Whether the settings of this tab differ from the defaults. */
+    customized,
     /**
-     * Saves what follows the account in a list update — columns, sort, filters and
-     * page size — the other states staying in the URL only.
+     * Records in the tab what a list update changes of its columns, sort, filters
+     * and page size, the other states staying in the URL only.
      */
     saveSearch: (next: Partial<ResolvedListSearch>) => {
-      if ("cols" in next) saveCols(next.cols);
-      if ("sort" in next) saveSort(next.sort);
-      if ("filters" in next) saveFilters(next.filters);
-      if ("limit" in next) saveLimit(next.limit);
+      const patch: TabViewPrefs = {};
+      if ("cols" in next) patch.cols = next.cols?.length ? next.cols : null;
+      if ("sort" in next) patch.sort = next.sort?.length ? next.sort : null;
+      if ("filters" in next)
+        patch.filters = next.filters && Object.keys(next.filters).length > 0 ? next.filters : null;
+      // The default page size is no setting.
+      if ("limit" in next) patch.limit = next.limit === DEFAULT_LIMIT ? null : (next.limit ?? null);
+      if (Object.keys(patch).length > 0) tab.set(patch);
+    },
+    /**
+     * Saves settings, those the tab shows, as the user's defaults, then lets the tab
+     * follow them. Empty settings and the default page size are not saved.
+     */
+    saveAsDefault: async (settings: ViewSettings): Promise<void> => {
+      const saved: ViewPrefs = {};
+      if (settings.cols?.length) saved.visible_columns = settings.cols;
+      if (settings.sort?.length) saved.sort = settings.sort;
+      if (settings.filters && Object.keys(settings.filters).length > 0)
+        saved.column_filters = settings.filters;
+      if (settings.limit !== undefined && settings.limit !== DEFAULT_LIMIT)
+        saved.perpage = settings.limit;
+      await savePrefs(queryClient, (current) => {
+        const tables = { ...current.tables };
+        // What the old interface keeps under the view, its filters say, stays.
+        const rest: ViewPrefs = { ...tables[view] };
+        delete rest.visible_columns;
+        delete rest.sort;
+        delete rest.column_filters;
+        delete rest.perpage;
+        const next = { ...rest, ...saved };
+        if (Object.keys(next).length === 0) delete tables[view];
+        else tables[view] = next;
+        return { ...current, tables };
+      });
+      tab.clear();
+    },
+    /** Forgets the settings of the tab: it follows the defaults again. */
+    restoreDefault: () => {
+      tab.clear();
     },
   };
 }
 
-type PrefsChange = (current: UserPrefs) => UserPrefs;
-
-/** Changes waiting to be written, one per view and key: a newer one replaces it. */
-const pending = new Map<string, PrefsChange>();
-let flushTimer: ReturnType<typeof setTimeout> | undefined;
-
-/** Changes scheduled but not written yet, over a state read from the server. */
-function applyPending(prefs: UserPrefs): UserPrefs {
-  return [...pending.values()].reduce((current, change) => change(current), prefs);
-}
-
-/**
- * Applies a change at once to the cached preferences and writes it a little later.
- *
- * The view reads its state from the cache: without the immediate update, a filter
- * just cleared from the URL would come back from the saved preferences until the
- * write lands. The write itself waits, as in the old collector, so that ticking three
- * columns or typing a filter writes only once.
- */
-function schedule(queryClient: QueryClient, id: string, change: PrefsChange) {
-  pending.set(id, change);
-  queryClient.setQueryData<UserPrefs>(PREFS_KEY, (current) => change(asPrefs(current)));
-  clearTimeout(flushTimer);
-  flushTimer = setTimeout(() => {
-    const changes = [...pending.values()];
-    pending.clear();
-    savePrefs(queryClient, (current) =>
-      changes.reduce((prefs, apply) => apply(prefs), current),
-    ).catch(() => {
-      // The cache holds a state the server refused: read the stored one again.
-      void queryClient.invalidateQueries({ queryKey: PREFS_KEY });
-    });
-  }, SAVE_DELAY);
-}
+/** What `useViewPrefs` gives a list. */
+export type ViewPrefsControl = ReturnType<typeof useViewPrefs>;
 
 /**
  * Keys this interface once saved with the account and no longer reads: the panel
@@ -223,15 +269,30 @@ function withoutObsolete(prefs: UserPrefs): UserPrefs {
   return kept;
 }
 
+/** The last save started: the next one waits for it (`savePrefs`). */
+let saving: Promise<void> = Promise.resolve();
+
 /**
  * Applies a change to the preferences object and saves it.
  *
  * The object is read back before being written again: the server replaces the whole
- * of it, and another tab may have saved its columns in the meantime. It is read
- * outside the cache, which holds changes not written yet; those are applied again
- * over the stored state once it is saved.
+ * of it, and another tab may have saved its own preferences in the meantime.
+ *
+ * The saves of this tab run one after another, each reading what the one before
+ * wrote: two saves started together, by two hooks say, read the same state, and
+ * the second write dropped the change of the first. A save that fails does not
+ * stop the next ones.
  */
-export async function savePrefs(
+export function savePrefs(
+  queryClient: QueryClient,
+  change: (current: UserPrefs) => UserPrefs,
+): Promise<void> {
+  const run = saving.then(() => writePrefs(queryClient, change));
+  saving = run.catch(() => undefined);
+  return run;
+}
+
+async function writePrefs(
   queryClient: QueryClient,
   change: (current: UserPrefs) => UserPrefs,
 ): Promise<void> {
@@ -241,7 +302,7 @@ export async function savePrefs(
     body: { data: next },
   });
   if (error !== undefined) throw new Error(problemText(error));
-  queryClient.setQueryData(PREFS_KEY, applyPending(next));
+  queryClient.setQueryData(PREFS_KEY, next);
 }
 
 /**
@@ -294,7 +355,23 @@ function currentAppearance(prefs: ReturnType<typeof useUserPrefs>): {
  * page opened. Until then, the local cache applied at startup (`src/main.tsx`) holds.
  */
 export function useAppearance(): void {
-  const { theme, palette } = currentAppearance(useUserPrefs());
+  const prefs = useUserPrefs();
+  const { theme, palette } = currentAppearance(prefs);
+  const language = currentLanguage(prefs);
+  useEffect(() => {
+    applyLanguage(language);
+  }, [language]);
+  // The browser's language may change during the session, while it is the one used.
+  const currentChoice = useRef(language);
+  useEffect(() => {
+    currentChoice.current = language;
+  }, [language]);
+  useEffect(() => watchBrowserLanguage(() => currentChoice.current), []);
+
+  const dates = currentDateFormatPrefs(prefs);
+  useEffect(() => {
+    applyDateFormat({ format: dates.format, hourCycle: dates.hourCycle });
+  }, [dates.format, dates.hourCycle]);
 
   useEffect(() => {
     applyTheme(theme);
@@ -348,10 +425,109 @@ export function useThemePref() {
   return useAppearanceChoice("theme", theme, applyTheme);
 }
 
-/** Colour palette chosen by the account: standard or high contrast. */
+/** Colour palette chosen by the account: standard, high contrast or colour-blind friendly. */
 export function usePalettePref() {
   const { palette } = currentAppearance(useUserPrefs());
   return useAppearanceChoice("palette", palette, applyPalette);
+}
+
+/** Language in effect: the account's once known, the local cache until then. */
+function currentLanguage(prefs: ReturnType<typeof useUserPrefs>): LanguageChoice {
+  const stored = prefs.data?.language;
+  if (isLanguageChoice(stored) && stored !== "system") return stored;
+  return prefs.isSuccess ? "system" : cachedLanguage();
+}
+
+/**
+ * Language chosen by the account, as the profile page edits it, in the shape of the
+ * appearance choices. "system" is not stored: choosing it removes `language` from
+ * the preferences, the browser's language then applying as before any choice.
+ */
+export function useLanguagePref() {
+  const queryClient = useQueryClient();
+  const language = currentLanguage(useUserPrefs());
+  const save = useMutation({
+    mutationFn: async (next: LanguageChoice) => {
+      applyLanguage(next);
+      await savePrefs(queryClient, (currentPrefs) => {
+        const rest = { ...currentPrefs };
+        delete rest.language;
+        return next === "system" ? rest : { ...rest, language: next };
+      });
+    },
+    onError: () => {
+      applyLanguage(language);
+    },
+  });
+  return {
+    // The choice being saved shows at once, rather than when the server confirms it.
+    value: save.isPending ? save.variables : language,
+    set: (next: LanguageChoice) => {
+      save.mutate(next);
+    },
+    isSaving: save.isPending,
+    errorMessage: save.isError ? save.error.message : null,
+  };
+}
+
+/** The date format of the account, or the local cache until its preferences arrive. */
+function currentDateFormatPrefs(prefs: ReturnType<typeof useUserPrefs>): DateFormatPrefs {
+  if (!prefs.isSuccess) return cachedDateFormat();
+  const { dateFormat, hourCycle } = prefs.data;
+  return {
+    format: isDateFormatChoice(dateFormat) ? dateFormat : "system",
+    hourCycle: isHourCycleChoice(hourCycle) ? hourCycle : "auto",
+  };
+}
+
+/**
+ * The date format and the clock chosen by the account, as the profile page edits
+ * them, each in the shape of the appearance choices. The defaults are not stored:
+ * choosing one removes its key.
+ */
+export function useDateFormatPref() {
+  const queryClient = useQueryClient();
+  const stored = currentDateFormatPrefs(useUserPrefs());
+  const save = useMutation({
+    mutationFn: async (next: DateFormatPrefs) => {
+      applyDateFormat(next);
+      await savePrefs(queryClient, (currentPrefs) => {
+        const rest = { ...currentPrefs };
+        delete rest.dateFormat;
+        delete rest.hourCycle;
+        return {
+          ...rest,
+          ...(next.format === "system" ? {} : { dateFormat: next.format }),
+          ...(next.hourCycle === "auto" ? {} : { hourCycle: next.hourCycle }),
+        };
+      });
+    },
+    onError: () => {
+      applyDateFormat(stored);
+    },
+  });
+  // The choice being saved shows at once, rather than when the server confirms it.
+  const value = save.isPending ? save.variables : stored;
+  const common = {
+    isSaving: save.isPending,
+    errorMessage: save.isError ? save.error.message : null,
+  };
+  return {
+    format: {
+      ...common,
+      value: value.format,
+      set: (format: DateFormatChoice) => {
+        save.mutate({ ...value, format });
+      },
+    },
+    hourCycle: {
+      ...common,
+      value: value.hourCycle,
+      set: (hourCycle: HourCycleChoice) => {
+        save.mutate({ ...value, hourCycle });
+      },
+    },
+  };
 }
 
 /**
@@ -386,6 +562,8 @@ export function useResetViewPrefs() {
     },
     isPending: reset.isPending,
     isDone: reset.isSuccess,
+    /** When the reset that succeeded was asked: tells one report from the next. */
+    doneAt: reset.isSuccess ? reset.submittedAt : null,
     errorMessage: reset.isError ? reset.error.message : null,
   };
 }
@@ -437,6 +615,40 @@ export function useNavCollapsedPref() {
       save.mutate(
         collapsed.includes(key) ? collapsed.filter((k) => k !== key) : [...collapsed, key],
       );
+    },
+  };
+}
+
+/**
+ * The menu the side menu shows, operator or admin, kept for the account; operator
+ * until one is chosen. The change shows at once and is saved behind it.
+ */
+export function useNavViewPref() {
+  const queryClient = useQueryClient();
+  const prefs = useUserPrefs();
+  const stored = prefs.data?.nav?.view;
+  const view: "operator" | "admin" = stored === "admin" ? "admin" : "operator";
+  const save = useMutation({
+    mutationFn: async (next: "operator" | "admin") => {
+      queryClient.setQueryData<UserPrefs>(PREFS_KEY, (current) => ({
+        ...current,
+        nav: { ...current?.nav, view: next },
+      }));
+      await savePrefs(queryClient, (current) => ({
+        ...current,
+        nav: { ...current.nav, view: next },
+      }));
+    },
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: PREFS_KEY });
+    },
+  });
+  return {
+    view,
+    /** Whether the stored choice is read: until then, `view` is the default. */
+    ready: prefs.data !== undefined || prefs.isError,
+    setView: (next: "operator" | "admin") => {
+      if (next !== view) save.mutate(next);
     },
   };
 }
@@ -557,5 +769,64 @@ export function useRequestFormsPref() {
         recent: [id, ...current.recent.filter((r) => r !== id)].slice(0, RECENT_FORMS_SIZE),
       }));
     },
+  };
+}
+
+/** How the panel history groups its records: by time, the default, or by kind. */
+export type HistoryGrouping = "time" | "kind";
+
+/**
+ * The grouping of the panel history, saved with the account; "time", the default,
+ * is not stored.
+ */
+export function useHistoryGrouping() {
+  const queryClient = useQueryClient();
+  const prefs = useUserPrefs();
+  const stored: HistoryGrouping = prefs.data?.historyGrouping === "kind" ? "kind" : "time";
+  const save = useMutation({
+    mutationFn: (next: HistoryGrouping) =>
+      savePrefs(queryClient, (current) => {
+        const rest = { ...current };
+        delete rest.historyGrouping;
+        return next === "kind" ? { ...rest, historyGrouping: next } : rest;
+      }),
+  });
+  return {
+    // The choice being saved shows at once, rather than when the server confirms it.
+    value: save.isPending ? save.variables : stored,
+    set: (next: HistoryGrouping) => {
+      save.mutate(next);
+    },
+  };
+}
+
+/** The edges of the window the detail panels can stand against, the default first. */
+export const PANEL_SIDES = ["right", "left"] as const;
+export type PanelSideChoice = (typeof PANEL_SIDES)[number];
+
+/**
+ * The edge the detail panels and their history open against, saved with the
+ * account; "right", the default, is not stored.
+ */
+export function usePanelSidePref() {
+  const queryClient = useQueryClient();
+  const prefs = useUserPrefs();
+  const stored: PanelSideChoice = prefs.data?.panelSide === "left" ? "left" : "right";
+  const save = useMutation({
+    mutationFn: (next: PanelSideChoice) =>
+      savePrefs(queryClient, (current) => {
+        const rest = { ...current };
+        delete rest.panelSide;
+        return next === "left" ? { ...rest, panelSide: next } : rest;
+      }),
+  });
+  return {
+    // The choice being saved shows at once, rather than when the server confirms it.
+    value: save.isPending ? save.variables : stored,
+    set: (next: PanelSideChoice) => {
+      save.mutate(next);
+    },
+    isSaving: save.isPending,
+    errorMessage: save.isError ? save.error.message : null,
   };
 }

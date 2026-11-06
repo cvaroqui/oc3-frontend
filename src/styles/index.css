@@ -69,6 +69,7 @@
   --text-title: var(--text-title);
   --radius-control: var(--radius-control);
   --radius-panel: var(--radius-panel);
+  --radius-pill: var(--radius-pill);
 }
 
 @layer base {
@@ -99,5 +100,24 @@
       animation-duration: 0.01ms !important;
       transition-duration: 0.01ms !important;
     }
+  }
+}
+
+/* A temporary message arriving: a short fade and rise, so that it is noticed. Reduced
+   motion shortens it to nothing, as every animation (see above). */
+@keyframes notice-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@layer components {
+  .notice-in {
+    animation: notice-in 180ms ease-out;
   }
 }

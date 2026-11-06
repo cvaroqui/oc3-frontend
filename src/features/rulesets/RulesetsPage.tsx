@@ -21,7 +21,8 @@ import {
   visibleProps,
   type ResolvedListSearch,
 } from "@/lib/list-search";
-import { filterQuery, filtersKey } from "@/lib/column-filters";
+import { filterQuery, filtersKey, type ColumnFilters } from "@/lib/column-filters";
+import { STATS_LIMIT, toValueStats, type ValueStats } from "@/lib/api/value-stats";
 import { useViewPrefs, withSavedSearch } from "@/lib/user-prefs";
 import { RulesetDetailPanel } from "./RulesetDetailPanel";
 
@@ -96,10 +97,10 @@ const NUMERIC_PROPS: string[] = [...KEY_PROPS, "chain_len", "fset_id"];
 /** The two kinds of ruleset: the values are their own labels, as in the cells. */
 const TYPE_OPTIONS = [{ value: "explicit" }, { value: "contextual" }];
 
-function renderCell(prop: RulesetProp, row: RulesetRow, locale: string) {
+function renderCell(prop: RulesetProp, row: RulesetRow) {
   switch (prop) {
     case "var_updated":
-      return <DateTime value={row.var_updated} locale={locale} />;
+      return <DateTime value={row.var_updated} />;
     case "teams_responsible":
     case "teams_publication":
       return <TeamLinks value={row[prop]} />;
@@ -131,7 +132,7 @@ const COLUMNS: ListColumn<RulesetRow>[] = RULESET_PROPS.map((prop) => ({
       : prop === "ruleset_type"
         ? { kind: "enum" as const, options: TYPE_OPTIONS }
         : undefined,
-  render: (row, locale) => renderCell(prop, row, locale),
+  render: (row) => renderCell(prop, row),
 }));
 
 const ALL_PROPS: string[] = [...RULESET_PROPS];
@@ -177,6 +178,17 @@ async function fetchRulesets(search: ResolvedListSearch) {
   // `data` holds the rows, or the counts when `stats` is asked for.
   const all: RulesetRow[] = Array.isArray(data.data) ? data.data : [];
   return toPage(all, data.meta, search.limit);
+}
+
+/**
+ * The distribution of a column's values over the rulesets the filters given keep,
+ * for its filter: the pagination does not apply.
+ */
+async function rulesetStats(prop: string, filters: ColumnFilters): Promise<ValueStats> {
+  const query = { props: prop, stats: "1", limit: STATS_LIMIT, filter: filterQuery(filters) };
+  const response = await api.GET("/compliance/rulesets_variables", { params: { query } });
+  if (response.error !== undefined) throw new Error(problemText(response.error));
+  return toValueStats(response.data.data, response.data.meta, prop);
 }
 
 function useRulesets(search: ResolvedListSearch) {
@@ -247,14 +259,14 @@ export function RulesetsPage() {
       </h1>
 
       <CollectorList
+        viewPrefs={prefs}
+        valueStats={rulesetStats}
         columns={COLUMNS}
         defaultCols={DEFAULT_COLS}
         rows={data?.rows ?? []}
         rowId={rowKey}
         search={search}
         onChange={update}
-        // The collector's filtersets select nodes and services, not rulesets.
-        filtersets={[]}
         isPending={isPending}
         isFetching={isFetching}
         errorMessage={isError ? error.message : null}

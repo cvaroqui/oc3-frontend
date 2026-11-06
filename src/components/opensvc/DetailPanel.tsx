@@ -1,18 +1,17 @@
 import { useState, type KeyboardEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { SlideOver } from "@/components/ui/SlideOver";
-import { CheckIcon, CloseIcon, PencilIcon } from "@/components/ui/icons";
+import { AlertTriangleIcon, CheckIcon, CloseIcon, PencilIcon } from "@/components/ui/icons";
 import { Switch } from "@/components/ui/Switch";
 import { Combobox } from "@/components/ui/Combobox";
 import type { ObjectKind } from "./ObjectIcon";
 import { ColumnFamilyIcon, type ColumnFamily } from "./ColumnFamily";
 import { readPropAsString } from "@/lib/row";
 import { problemText } from "@/lib/api/problem";
+import { matchesPattern } from "@/lib/pattern";
 import { BookmarkButton } from "./BookmarkButton";
 import { FlashScope, FlashValue } from "./Flash";
-import { PanelHistoryRail } from "./PanelHistory";
 import { PanelTitle } from "./PanelTitle";
-import { recordKey } from "./panel-history";
 import { BOOKMARK_KINDS } from "./bookmark-kinds";
 
 export interface DetailField<T> {
@@ -43,6 +42,18 @@ export interface DetailField<T> {
    * the caller, who alone knows how to query it.
    */
   optionsKey?: string;
+}
+
+/**
+ * Values configured for an attribute (oc3's field constraints): offered in a
+ * dropdown when editing it. Strict, no other value is accepted; otherwise they are
+ * suggestions and free text remains possible. With a pattern instead, the value is
+ * typed and must match the whole of it.
+ */
+export interface ValueList {
+  values: string[];
+  strict: boolean;
+  pattern?: string;
 }
 
 export interface DetailGroup<T> {
@@ -107,6 +118,12 @@ interface DetailContentProps<T> {
    */
   options?: Record<string, string[]>;
   /**
+   * Value lists configured for attributes, by attribute name: an editable text
+   * attribute listed here is edited in a dropdown, free or strict as the list says.
+   * An attribute declaring `optionsKey` keeps its own list.
+   */
+  valueLists?: Record<string, ValueList>;
+  /**
    * False when the caller titles the groups itself, such as a card per group: the
    * heading of each group is then left out. True by default.
    */
@@ -142,6 +159,7 @@ export function DetailContent<T>({
   onSave,
   editHint,
   options,
+  valueLists,
   groupTitles = true,
   labelWidth,
   groupFooters,
@@ -191,6 +209,15 @@ export function DetailContent<T>({
       cancel();
       return;
     }
+    // Checked here as well as by the server, to say why before sending; a pattern
+    // the browser cannot compile is left to the server.
+    const pattern = textList(field)?.pattern;
+    if (pattern !== undefined && value !== "" && matchesPattern(pattern, value) === false) {
+      setSaveError(
+        t("detail.patternMismatch", { field: t(`${labelPrefix}.${field.prop}`), pattern }),
+      );
+      return;
+    }
     setSaving(true);
     setSaveError(null);
     try {
@@ -201,6 +228,15 @@ export function DetailContent<T>({
     } finally {
       setSaving(false);
     }
+  }
+
+  /** The value list configured for a text attribute, unless it has its own options. */
+  function textList(field: DetailField<T>): ValueList | undefined {
+    return field.optionsKey === undefined &&
+      (field.input ?? "text") === "text" &&
+      field.editable === true
+      ? valueLists?.[field.prop]
+      : undefined;
   }
 
   function onFieldKeyDown(
@@ -267,9 +303,20 @@ export function DetailContent<T>({
                     // A dropdown only if there is something to fill it with: with no
                     // team declared, free input is better than an empty choice. The
                     // current value is always listed, even when outside the list.
+                    const list = textList(field);
                     const known =
-                      field.optionsKey === undefined ? undefined : options?.[field.optionsKey];
+                      field.optionsKey === undefined ? list?.values : options?.[field.optionsKey];
+                    const freeText = list !== undefined && !list.strict;
                     const current = readPropAsString(row, field.prop);
+                    // A value set before the list or the pattern, or by the node
+                    // itself, which they would not accept: said, with an icon, not by
+                    // colour.
+                    const outside =
+                      list?.strict === true &&
+                      current !== "" &&
+                      (list.pattern === undefined
+                        ? !list.values.includes(current)
+                        : matchesPattern(list.pattern, current) === false);
                     const choices =
                       known === undefined || known.length === 0
                         ? undefined
@@ -335,6 +382,7 @@ export function DetailContent<T>({
                                     }))}
                                     value={value}
                                     onChange={setValue}
+                                    freeText={freeText}
                                     label={label}
                                     placeholder={t("detail.searchValue")}
                                     emptyText={t("detail.noMatch")}
@@ -356,6 +404,13 @@ export function DetailContent<T>({
                                   value={value}
                                   aria-label={label}
                                   disabled={saving}
+                                  // The pattern the value must match, as a reminder.
+                                  placeholder={list?.pattern}
+                                  title={
+                                    list?.pattern === undefined
+                                      ? undefined
+                                      : t("detail.patternHint", { pattern: list.pattern })
+                                  }
                                   onChange={(event) => {
                                     setValue(event.target.value);
                                   }}
@@ -401,6 +456,21 @@ export function DetailContent<T>({
                                   shown
                                 )}
                               </FlashValue>
+                              {outside && (
+                                <span
+                                  className="flex shrink-0 items-center gap-1 text-ink-muted"
+                                  title={
+                                    list.pattern === undefined
+                                      ? t("detail.outsideListHint")
+                                      : t("detail.outsidePatternHint", { pattern: list.pattern })
+                                  }
+                                >
+                                  <AlertTriangleIcon className="h-3.5 w-3.5" />
+                                  {list.pattern === undefined
+                                    ? t("detail.outsideList")
+                                    : t("detail.outsidePattern")}
+                                </span>
+                              )}
                               {canEdit && field.editable === true && (
                                 // Invisible at rest but present and focusable: the
                                 // pencil stays reachable from the keyboard.
@@ -459,7 +529,9 @@ export function DetailPanel<T>({
   kind,
   isPending,
   before,
+  after,
   recordId,
+  titleActions,
   ...content
 }: DetailContentProps<T> & {
   open: boolean;
@@ -469,8 +541,12 @@ export function DetailPanel<T>({
   kind: ObjectKind;
   /** Content placed before the properties, such as the object's tags. */
   before?: ReactNode;
+  /** Content placed after the properties, such as the log of an action. */
+  after?: ReactNode;
   /** Id of the object, for the bookmark button when a bookmark can reopen it. */
   recordId?: string;
+  /** Next to the title, such as the actions menu of the object. */
+  titleActions?: ReactNode;
 }) {
   const { t } = useTranslation();
   const bookmarkable = recordId !== undefined && recordId !== "" && BOOKMARK_KINDS.has(kind);
@@ -481,8 +557,16 @@ export function DetailPanel<T>({
       onClose={onClose}
       closeLabel={t("detail.close")}
       resizeLabel={t("detail.resize")}
-      heading={<PanelTitle kind={kind} title={title} recordId={recordId} open={open} />}
-      rail={<PanelHistoryRail currentKey={recordKey(kind, recordId)} />}
+      heading={
+        <PanelTitle
+          kind={kind}
+          title={title}
+          recordId={recordId}
+          open={open}
+          actions={titleActions}
+        />
+      }
+      reopenable
       actions={bookmarkable ? <BookmarkButton kind={kind} id={recordId} /> : undefined}
     >
       {/* Another record brings other values, which are not updates to flash. */}
@@ -490,6 +574,7 @@ export function DetailPanel<T>({
         {before}
         {/* A disabled query stays "pending": panel closed, nothing to load. */}
         <DetailContent {...content} isPending={open && isPending} />
+        {after}
       </FlashScope>
     </SlideOver>
   );

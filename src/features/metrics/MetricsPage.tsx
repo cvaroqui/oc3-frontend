@@ -19,7 +19,8 @@ import {
   visibleProps,
   type ResolvedListSearch,
 } from "@/lib/list-search";
-import { filterQuery, filtersKey } from "@/lib/column-filters";
+import { filterQuery, filtersKey, type ColumnFilters } from "@/lib/column-filters";
+import { STATS_LIMIT, toValueStats, type ValueStats } from "@/lib/api/value-stats";
 import { useViewPrefs, withSavedSearch } from "@/lib/user-prefs";
 import { MetricDetailPanel } from "./MetricDetailPanel";
 import { MetricFormPanel } from "./MetricFormPanel";
@@ -70,10 +71,10 @@ const COLUMNS: ListColumn<MetricRow>[] = METRIC_PROPS.map((prop) => ({
   numeric: NUMERIC_PROPS.has(prop),
   family: FAMILY[prop] ?? "state",
   filter: prop === "metric_historize" ? { kind: "enum", options: FLAG_FILTER_OPTIONS } : undefined,
-  render: (row: MetricRow, locale: string) => {
+  render: (row: MetricRow) => {
     if (prop === "metric_historize")
       return <FlagSwitch value={row.metric_historize} labelKey="metrics.fields.metric_historize" />;
-    if (prop === "metric_created") return <DateTime value={row.metric_created} locale={locale} />;
+    if (prop === "metric_created") return <DateTime value={row.metric_created} />;
     if (prop === "metric_sql")
       // Two lines of the request at most: the whole of it is in the detail.
       return (
@@ -112,6 +113,17 @@ async function fetchMetrics(search: ResolvedListSearch) {
   if (error !== undefined) throw new Error(problemText(error));
   const all: MetricRow[] = Array.isArray(data.data) ? data.data : [];
   return toPage(all, data.meta, search.limit);
+}
+
+/**
+ * The distribution of a column's values over the metrics the filters given keep,
+ * for its filter: the pagination does not apply.
+ */
+async function metricStats(prop: string, filters: ColumnFilters): Promise<ValueStats> {
+  const query = { props: prop, stats: "1", limit: STATS_LIMIT, filter: filterQuery(filters) };
+  const response = await api.GET("/metrics", { params: { query } });
+  if (response.error !== undefined) throw new Error(problemText(response.error));
+  return toValueStats(response.data.data, response.data.meta, prop);
 }
 
 function useMetrics(search: ResolvedListSearch) {
@@ -198,14 +210,14 @@ export function MetricsPage() {
       <p className="mb-3 max-w-3xl text-ink-muted">{t("metrics.intro")}</p>
 
       <CollectorList
+        viewPrefs={prefs}
+        valueStats={metricStats}
         columns={COLUMNS}
         defaultCols={DEFAULT_COLS}
         rows={data?.rows ?? []}
         rowId={(row) => (row.id === undefined ? undefined : String(row.id))}
         search={search}
         onChange={update}
-        // A metric is not attached to a node or a service: no filterset applies.
-        filtersets={[]}
         isPending={isPending}
         isFetching={isFetching}
         errorMessage={isError ? error.message : null}

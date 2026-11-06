@@ -1,7 +1,10 @@
+import { useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
+import { TransientNotice } from "@/components/ui/TransientNotice";
 import type { components } from "@/lib/api/schema";
+import { SelectionDeleteMenu } from "@/components/opensvc/SelectionDeleteMenu";
 import { api } from "@/lib/api/client";
 import { toPage } from "@/lib/api/page";
 import { problemText } from "@/lib/api/problem";
@@ -21,7 +24,8 @@ import {
   visibleProps,
   type ResolvedListSearch,
 } from "@/lib/list-search";
-import { filterQuery, filtersKey } from "@/lib/column-filters";
+import { filterQuery, filtersKey, type ColumnFilters } from "@/lib/column-filters";
+import { STATS_LIMIT, toValueStats, type ValueStats } from "@/lib/api/value-stats";
 import { useViewPrefs, withSavedSearch } from "@/lib/user-prefs";
 import { ObsolescenceDetailPanel } from "./ObsolescenceDetailPanel";
 
@@ -106,6 +110,17 @@ async function fetchSettings(search: ResolvedListSearch) {
   return toPage(all, data.meta, search.limit);
 }
 
+/**
+ * The distribution of a column's values over the obsolescence settings the filters given keep,
+ * for its filter: the pagination does not apply.
+ */
+async function obsolescenceStats(prop: string, filters: ColumnFilters): Promise<ValueStats> {
+  const query = { props: prop, stats: "1", limit: STATS_LIMIT, filter: filterQuery(filters) };
+  const response = await api.GET("/obsolescence/settings", { params: { query } });
+  if (response.error !== undefined) throw new Error(problemText(response.error));
+  return toValueStats(response.data.data, response.data.meta, prop);
+}
+
 function useSettings(search: ResolvedListSearch) {
   return useQuery({
     queryKey: [
@@ -133,6 +148,16 @@ export function ObsolescencePage() {
   );
   const navigate = useNavigate({ from: "/obsolescence" });
   const { data, isPending, isError, error, isFetching } = useSettings(search);
+  // The rows checked, and those just deleted, for the list to untick them.
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [deleted, setDeleted] = useState<string[]>([]);
+  // Names from the page on display: a selection extended to the following pages does
+  // not have them all, so the id then serves as a fallback in the messages.
+  const names = new Map<string, string>();
+  for (const row of data?.rows ?? []) {
+    const id = row.id === undefined ? undefined : String(row.id);
+    if (id !== undefined && row.obs_name !== undefined) names.set(id, row.obs_name);
+  }
 
   /**
    * Creating the missing settings. The collector does not create a setting by hand:
@@ -140,6 +165,8 @@ export function ObsolescencePage() {
    * that do not have one yet, like the "refresh obsolescence" action of the
    * historical collector. Existing settings and their dates are left untouched.
    */
+  // The refresh whose report was dismissed, or left by itself: by when it was asked.
+  const [dismissedRefresh, setDismissedRefresh] = useState<number | null>(null);
   const refresh = useMutation({
     mutationFn: async () => {
       const { error: failure } = await api.PUT("/obsolescence/refresh");
@@ -179,14 +206,13 @@ export function ObsolescencePage() {
     numeric: NUMERIC_PROPS.has(prop),
     family: FAMILY[prop] ?? "node",
     filter: prop === "obs_type" ? { kind: "enum" as const, options: TYPE_OPTIONS } : undefined,
-    render: (row: ObsolescenceSettingRow, locale: string) => {
+    render: (row: ObsolescenceSettingRow) => {
       const value = row[prop];
       if (prop === "obs_type" && row.obs_type !== undefined)
         return t(`obsolescence.type.${row.obs_type}`);
       if (DEADLINE_PROPS.has(prop) && typeof value === "string")
-        return <DateTime value={value} locale={locale} dateOnly />;
-      if (TIMESTAMP_PROPS.has(prop) && typeof value === "string")
-        return <DateTime value={value} locale={locale} />;
+        return <DateTime value={value} dateOnly />;
+      if (TIMESTAMP_PROPS.has(prop) && typeof value === "string") return <DateTime value={value} />;
       return value;
     },
   }));
@@ -212,26 +238,52 @@ export function ObsolescencePage() {
           <RefreshIcon className="h-3.5 w-3.5" />
           {refresh.isPending ? t("obsolescence.refresh.pending") : t("obsolescence.refresh.open")}
         </button>
-        <span aria-live="polite" className="text-ink-muted">
-          {refresh.isSuccess && t("obsolescence.refresh.done")}
-        </span>
+        {refresh.isSuccess && dismissedRefresh !== refresh.submittedAt && (
+          <TransientNotice
+            id={refresh.submittedAt}
+            tone="info"
+            text={t("obsolescence.refresh.done")}
+            dismissLabel={t("actionsMenu.dismiss")}
+            onDismiss={() => {
+              setDismissedRefresh(refresh.submittedAt);
+            }}
+          />
+        )}
         {refresh.isError && (
           <span role="alert" className="text-state-down">
             ■ {refresh.error.message}
           </span>
         )}
+        {/* On the rows checked in the list; nothing checked, no menu. */}
+        <SelectionDeleteMenu
+          targets={selectedIds.map((id) => ({ id, name: names.get(id) ?? id }))}
+          prefix="obsolescence.actions"
+          privileges={["ObsManager"]}
+          remove={async (id) => {
+            const { error } = await api.DELETE("/obsolescence/settings/{id}", {
+              params: { path: { id } },
+            });
+            return error === undefined ? null : problemText(error);
+          }}
+          invalidate={[["obsolescence"]]}
+          onDeleted={(ids) => {
+            setDeleted(ids);
+            // The detail of a deleted object has nothing left to show.
+            if (search.sel !== undefined && ids.includes(search.sel)) update({ sel: undefined });
+          }}
+        />
       </div>
       <p className="mb-3 max-w-3xl text-ink-muted">{t("obsolescence.intro")}</p>
 
       <CollectorList
+        viewPrefs={prefs}
+        valueStats={obsolescenceStats}
         columns={columns}
         defaultCols={DEFAULT_COLS}
         rows={data?.rows ?? []}
         rowId={(row) => (row.id === undefined ? undefined : String(row.id))}
         search={search}
         onChange={update}
-        // The collector filtersets do not bear on these settings.
-        filtersets={[]}
         isPending={isPending}
         isFetching={isFetching}
         errorMessage={isError ? error.message : null}
@@ -239,6 +291,8 @@ export function ObsolescencePage() {
         exportPage={(page) => fetchSettings({ ...search, ...page })}
         total={data?.total}
         selectAllMatching={allIds}
+        onSelectionChange={setSelectedIds}
+        unselect={deleted}
         filterable
       />
 

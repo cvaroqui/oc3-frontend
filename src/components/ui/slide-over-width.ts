@@ -16,7 +16,7 @@ const STORAGE_KEY = "oc3.panel-width";
 /** Narrowest a panel gets, in pixels: its header and a form still fit. */
 export const MIN_WIDTH = 320;
 
-/** Room kept on the left of the record zone of a resized panel, in pixels: its rail stands there. */
+/** Room a resized panel leaves of the view beside it, in pixels: the panel is never the whole window. */
 export const LEFT_ROOM = 192;
 
 /** Width of each size before any resize, in pixels: what its `max-w-*` class gives. */
@@ -63,7 +63,7 @@ export function usePanelWidth(size: SlideOverSize): number | undefined {
 /**
  * The width a panel may take in the current window, `floor` being the narrowest its
  * content allows (`contentFloor`). The window wins over the content: a panel never
- * takes the room of the rail.
+ * takes the room left beside it.
  */
 export function clampWidth(width: number, floor = MIN_WIDTH): number {
   const max = Math.max(MIN_WIDTH, window.innerWidth - LEFT_ROOM);
@@ -82,13 +82,43 @@ export function clampWidth(width: number, floor = MIN_WIDTH): number {
  */
 export function contentFloor(panel: HTMLElement): number {
   const fitting = widthBound(panel).filter((element) => element.scrollWidth <= element.clientWidth);
+  const declared = declaredLack(panel);
   const before = panel.style.maxWidth;
   panel.style.maxWidth = `${String(MIN_WIDTH)}px`;
   let lacking = 0;
   for (const element of fitting)
     lacking = Math.max(lacking, element.scrollWidth - element.clientWidth);
   panel.style.maxWidth = before;
-  return MIN_WIDTH + lacking;
+  return Math.max(MIN_WIDTH + lacking, declared.floor());
+}
+
+/**
+ * The width an element of a panel declares it needs, in pixels, for what does not
+ * overflow and so cannot be measured: a menu whose boxes wrap onto more lines when
+ * narrowed (`RelatedTileNav`), say. The element keeps it up to date.
+ */
+export const PANEL_MIN_WIDTH_ATTR = "data-panel-min-width";
+
+/**
+ * What the elements declaring a width need (`PANEL_MIN_WIDTH_ATTR`): the panel
+ * width giving each its own, the room around it in the panel kept, and how much
+ * wider than now the panel must be for that.
+ */
+function declaredLack(panel: HTMLElement) {
+  const needs = Array.from(
+    panel.querySelectorAll<HTMLElement>(`[${PANEL_MIN_WIDTH_ATTR}]`),
+  ).flatMap((element) => {
+    const declared = Number(element.getAttribute(PANEL_MIN_WIDTH_ATTR));
+    if (!Number.isFinite(declared) || declared <= 0 || !element.checkVisibility()) return [];
+    // The room the panel leaves around the element: its padding, say.
+    const around = panel.getBoundingClientRect().width - element.getBoundingClientRect().width;
+    return [Math.ceil(declared + around)];
+  });
+  const floor = () => Math.max(MIN_WIDTH, ...needs);
+  return {
+    floor,
+    lacking: () => Math.max(0, floor() - panel.getBoundingClientRect().width),
+  };
 }
 
 /** Marks an area made to scroll sideways, whatever its width: no reason to widen the panel. */
@@ -126,6 +156,8 @@ export function widthToFit(panel: HTMLElement): number | null {
   const current = panel.getBoundingClientRect().width;
   const max = window.innerWidth - LEFT_ROOM;
   let needed = 0;
+  const declared = declaredLack(panel).lacking();
+  if (declared > 0 && current + declared <= max) needed = Math.ceil(current + declared);
   for (const element of widthBound(panel)) {
     const lacking = element.scrollWidth - element.clientWidth;
     if (lacking <= 0) continue;

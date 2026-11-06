@@ -8,8 +8,9 @@ type GroupRow = components["schemas"]["GroupRow"];
 
 /**
  * The rulesets and modulesets the designer starts from, read from the export
- * endpoints: every object with its content and relations, in two requests. Read
- * only: the designer never writes back.
+ * endpoints: every object with its content and relations, in two requests. The
+ * designer writes back only by committing its sandbox (`commit.ts`), after which
+ * this is read again.
  */
 export function useDesignerDraft() {
   return useQuery({
@@ -17,6 +18,10 @@ export function useDesignerDraft() {
     // The sandbox starts from one snapshot: a refetch would not reach the draft.
     staleTime: Infinity,
     refetchOnWindowFocus: false,
+    // Forgotten once the designer is left: on return, the pending changes kept in
+    // the browser are replayed on the collector's data as it is then, not on the
+    // snapshot of the last visit.
+    gcTime: 0,
     queryFn: async (): Promise<Draft> => {
       const [rulesets, modulesets] = await Promise.all([
         api.GET("/compliance/rulesets/export"),

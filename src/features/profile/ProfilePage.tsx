@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { TransientNotice } from "@/components/ui/TransientNotice";
 import type { components } from "@/lib/api/schema";
 import { api } from "@/lib/api/client";
 import { DetailContent } from "@/components/opensvc/DetailPanel";
@@ -11,11 +13,21 @@ import {
   usePalettePref,
   useResetViewPrefs,
   useThemePref,
+  useLanguagePref,
+  usePanelSidePref,
+  useDateFormatPref,
+  PANEL_SIDES,
   useUserPrefs,
 } from "@/lib/user-prefs";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { ResetIcon } from "@/components/ui/icons";
 import { PALETTES, THEMES } from "@/lib/theme";
+import { LANGUAGES, browserLanguage } from "@/lib/language";
+import { DATE_FORMATS, HOUR_CYCLES, formatExample } from "@/lib/date-format";
+import { UserGroupsParts } from "@/features/users/UserGroupsParts";
+import { useUserGroups } from "@/features/users/use-user-groups";
+import { isSession, useCredentials } from "@/lib/api/auth";
+import { useImpersonation } from "@/lib/api/impersonation";
 import { PasswordSection } from "./PasswordSection";
 import { ProfileCard } from "./ProfileCard";
 
@@ -29,13 +41,14 @@ const IDENTITY_GROUP = EDITABLE_USER_GROUPS.find((g) => g.key === "identity");
  *
  * `GET /users/self` names the caller server side: no need to know their id, and the
  * page stays right if the sign-in email changes case. The historical collector also
- * showed the groups, the application codes and the default filterset; the API does
- * not expose them per user yet, see notes.md.
+ * showed the application codes and the default filterset; the API does not expose
+ * them per user yet, see notes.md.
  *
  * A header saying who is signed in, then cards of related settings, on two columns
  * where the screen allows: the account, whose name and email the user may change,
  * and its notifications, read only since the API offers no way to change them; the
- * password; the appearance; what the account remembers of the lists and of the menu.
+ * password; the groups and privileges of the account, read only, across both
+ * columns; the appearance; what the account remembers of the lists and of the menu.
  */
 export function ProfilePage() {
   const { t } = useTranslation();
@@ -55,6 +68,12 @@ export function ProfilePage() {
     .filter((part) => part !== undefined && part !== "")
     .join(" ");
   const saveIdentity = useSaveUser("self", true);
+  // Signed in through the identity provider, the name and email are the provider's:
+  // the collector refuses to change them, and takes the name again at each sign-in.
+  // Acting as another user, the profile shown is that user's.
+  const credentials = useCredentials();
+  const impersonation = useImpersonation();
+  const managedByProvider = isSession(credentials) && impersonation === null;
 
   /** A group of the account's properties, in a card of its own titled like it. */
   const detailCard = (key: string) => {
@@ -109,7 +128,7 @@ export function ProfilePage() {
         <ProfileCard
           title={t("users.detail.groups.identity")}
           family={IDENTITY_GROUP?.family}
-          hint={t("profile.identity.hint")}
+          hint={managedByProvider ? t("profile.identity.managedHint") : t("profile.identity.hint")}
         >
           <DetailContent
             groups={IDENTITY_GROUP === undefined ? [] : [IDENTITY_GROUP]}
@@ -120,11 +139,12 @@ export function ProfilePage() {
             errorMessage={isError ? error.message : null}
             groupTitles={false}
             labelWidth={LABEL_WIDTH}
-            onSave={saveIdentity}
-            editHint={t("profile.identity.editHint")}
+            onSave={managedByProvider ? undefined : saveIdentity}
+            editHint={managedByProvider ? undefined : t("profile.identity.editHint")}
           />
         </ProfileCard>
         <PasswordSection email={data?.email ?? undefined} />
+        <GroupsCard />
         {detailCard("notifications")}
         <AppearanceCard />
         {detailCard("restrictions")}
@@ -148,11 +168,40 @@ function initials(fullName: string, email: string | null | undefined): string {
   return (email ?? "?").slice(0, 1).toUpperCase();
 }
 
-/** Theme and light or dark mode, the two sides of how the interface looks. */
+/**
+ * The organisational groups of the account, which decide the nodes and services
+ * it sees, and its privilege groups, which decide what it may change: read only,
+ * a GroupManager changing them from the Users view. Manager says it grants every
+ * privilege, since the other privilege groups then add nothing.
+ */
+function GroupsCard() {
+  const { t } = useTranslation();
+  const groups = useUserGroups("self");
+  const isManager = groups.data?.some((g) => g.role === "Manager") ?? false;
+  return (
+    <ProfileCard
+      title={t("profile.groups.title")}
+      family="team"
+      hint={t("profile.groups.hint")}
+      className="lg:col-span-2"
+    >
+      <UserGroupsParts userId="self" readOnly />
+      {isManager && <p className="mt-3 text-ink-muted">{t("profile.groups.manager")}</p>}
+    </ProfileCard>
+  );
+}
+
+/**
+ * Theme and light or dark mode, the two sides of how the interface looks, its
+ * language, and the edge the detail panels open against.
+ */
 function AppearanceCard() {
   const { t } = useTranslation();
   const theme = useThemePref();
   const palette = usePalettePref();
+  const language = useLanguagePref();
+  const panelSide = usePanelSidePref();
+  const dates = useDateFormatPref();
   return (
     <ProfileCard
       title={t("profile.appearance.title")}
@@ -181,6 +230,58 @@ function AppearanceCard() {
             choice={theme}
           />
         </div>
+        <div>
+          <p className="mb-1 font-medium">{t("profile.language.title")}</p>
+          <ChoiceGroup
+            name="language"
+            label={t("profile.language.title")}
+            options={LANGUAGES}
+            optionLabel={(value) =>
+              value === "system"
+                ? t("profile.language.system", {
+                    language: t(`profile.language.options.${browserLanguage()}`),
+                  })
+                : t(`profile.language.options.${value}`)
+            }
+            choice={language}
+          />
+          <p className="mt-1 text-ink-muted">{t("profile.language.hint")}</p>
+        </div>
+        <div>
+          <p className="mb-1 font-medium">{t("profile.dateFormat.title")}</p>
+          <ChoiceGroup
+            name="dateFormat"
+            label={t("profile.dateFormat.title")}
+            options={DATE_FORMATS}
+            optionLabel={(value) => t(`profile.dateFormat.options.${value}`)}
+            // Each convention shown with a moment it formats, under the clock chosen,
+            // in a column of its own: the conventions compare at a glance.
+            optionDetail={(value) =>
+              formatExample({ format: value, hourCycle: dates.hourCycle.value })
+            }
+            choice={dates.format}
+          />
+          <p className="mt-2 mb-1 font-medium">{t("profile.hourCycle.title")}</p>
+          <ChoiceGroup
+            name="hourCycle"
+            label={t("profile.hourCycle.title")}
+            options={HOUR_CYCLES}
+            optionLabel={(value) => t(`profile.hourCycle.options.${value}`)}
+            choice={dates.hourCycle}
+          />
+          <p className="mt-1 text-ink-muted">{t("profile.dateFormat.hint")}</p>
+        </div>
+        <div>
+          <p className="mb-1 font-medium">{t("profile.panelSide.title")}</p>
+          <ChoiceGroup
+            name="panelSide"
+            label={t("profile.panelSide.title")}
+            options={PANEL_SIDES}
+            optionLabel={(value) => t(`profile.panelSide.options.${value}`)}
+            choice={panelSide}
+          />
+          <p className="mt-1 text-ink-muted">{t("profile.panelSide.hint")}</p>
+        </div>
       </div>
     </ProfileCard>
   );
@@ -191,6 +292,8 @@ function SavedSettingsCard() {
   const { t } = useTranslation();
   const prefs = useUserPrefs();
   const resetViews = useResetViewPrefs();
+  // The reset whose report was dismissed, or left by itself: by when it was asked.
+  const [dismissedReset, setDismissedReset] = useState<number | null>(null);
   return (
     <ProfileCard title={t("profile.saved.title")} family="team" hint={t("profile.saved.hint")}>
       <div className="grid gap-3">
@@ -209,9 +312,21 @@ function SavedSettingsCard() {
               onConfirm={resetViews.reset}
             />
           ) : (
-            <p role="status" className="text-ink-muted">
-              {resetViews.isDone ? t("profile.viewPrefs.done") : t("profile.viewPrefs.none")}
-            </p>
+            <>
+              {/* The state in place; the report of the reset floats over the page. */}
+              <p className="text-ink-muted">{t("profile.viewPrefs.none")}</p>
+              {resetViews.doneAt !== null && dismissedReset !== resetViews.doneAt && (
+                <TransientNotice
+                  id={resetViews.doneAt}
+                  tone="success"
+                  text={t("profile.viewPrefs.done")}
+                  dismissLabel={t("actionsMenu.dismiss")}
+                  onDismiss={() => {
+                    setDismissedReset(resetViews.doneAt);
+                  }}
+                />
+              )}
+            </>
           )}
           {resetViews.errorMessage !== null && (
             <p role="alert" className="mt-2 text-state-down">
@@ -230,33 +345,55 @@ function ChoiceGroup<V extends string>({
   label,
   options,
   optionLabel,
+  optionDetail,
   choice,
 }: {
   name: string;
   label: string;
   options: readonly V[];
   optionLabel: (value: V) => string;
+  /**
+   * A second column, such as an example of the option: the options are then
+   * stacked, of one width, their labels and details aligned in two columns.
+   */
+  optionDetail?: (value: V) => string;
   choice: { value: V; set: (value: V) => void; isSaving: boolean; errorMessage: string | null };
 }) {
+  const stacked = optionDetail !== undefined;
   return (
     <>
-      <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-2">
+      <div
+        role="radiogroup"
+        aria-label={label}
+        className={
+          stacked ? "grid w-fit max-w-full grid-cols-[auto_auto] gap-1" : "flex flex-wrap gap-2"
+        }
+      >
         {options.map((value) => (
           <label
             key={value}
-            className="flex h-7 cursor-pointer items-center gap-1.5 rounded-(--radius-control) border border-line px-3 has-checked:border-accent has-checked:bg-accent-soft has-checked:text-ink"
+            className={`h-7 cursor-pointer items-center rounded-(--radius-control) border border-line px-3 has-checked:border-accent has-checked:bg-accent-soft has-checked:text-ink ${
+              stacked ? "col-span-2 grid grid-cols-subgrid gap-x-6" : "flex gap-1.5"
+            }`}
           >
-            <input
-              type="radio"
-              name={name}
-              value={value}
-              checked={choice.value === value}
-              disabled={choice.isSaving}
-              onChange={() => {
-                choice.set(value);
-              }}
-            />
-            {optionLabel(value)}
+            <span className="flex items-center gap-1.5">
+              <input
+                type="radio"
+                name={name}
+                value={value}
+                checked={choice.value === value}
+                disabled={choice.isSaving}
+                onChange={() => {
+                  choice.set(value);
+                }}
+              />
+              {optionLabel(value)}
+            </span>
+            {stacked && (
+              <span className="whitespace-nowrap text-ink-muted tabular-nums">
+                {optionDetail(value)}
+              </span>
+            )}
           </label>
         ))}
       </div>

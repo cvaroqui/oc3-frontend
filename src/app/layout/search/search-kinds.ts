@@ -24,6 +24,7 @@ export const SEARCH_KINDS: readonly SearchKind[] = [
   "tag",
   "user",
   "group",
+  "privilege",
   "request",
   "moduleset",
   "ruleset",
@@ -42,6 +43,7 @@ export const KIND_ICON: Record<SearchKind, ObjectKind> = {
   tag: "tag",
   user: "user",
   group: "group",
+  privilege: "privilege",
   // The requests are form submissions: the menu gives them the form mark.
   request: "form",
   moduleset: "moduleset",
@@ -49,6 +51,56 @@ export const KIND_ICON: Record<SearchKind, ObjectKind> = {
   filterset: "filterset",
   form: "form",
 };
+
+/**
+ * The prefix restricting the search to a kind, `node:dev`, as in the historical
+ * collector (`init/static/js/osvc/search/search.js`), whose prefixes are kept.
+ * Instances, requests and privilege groups, which it did not search apart, get
+ * their own. A scope badge writes this one.
+ */
+export const KIND_PREFIX: Record<SearchKind, string> = {
+  node: "node",
+  service: "svc",
+  instance: "inst",
+  app: "app",
+  network: "ip",
+  disk: "disk",
+  tag: "tag",
+  user: "user",
+  group: "group",
+  privilege: "priv",
+  request: "req",
+  moduleset: "modset",
+  ruleset: "rset",
+  filterset: "fset",
+  form: "form",
+};
+
+/** Every prefix understood: those above, and the full names of the kinds. */
+const PREFIX_KIND = new Map<string, SearchKind>([
+  ...SEARCH_KINDS.map((kind): [string, SearchKind] => [KIND_PREFIX[kind], kind]),
+  ...SEARCH_KINDS.map((kind): [string, SearchKind] => [kind, kind]),
+]);
+
+const PREFIX = /^\s*(\w+):\s*/;
+
+/**
+ * The text typed, split into the kind its prefix names and the text to search:
+ * `svc: web` searches "web" among the services. A word that names no kind is
+ * part of the text, so that `fe80:` or `http:` are searched as they are.
+ */
+export function parseSearchInput(input: string): { kind: SearchKind | undefined; text: string } {
+  const match = PREFIX.exec(input);
+  const kind = match?.[1] === undefined ? undefined : PREFIX_KIND.get(match[1].toLowerCase());
+  if (match === null || kind === undefined) return { kind: undefined, text: input };
+  return { kind, text: input.slice(match[0].length) };
+}
+
+/** The text with the prefix of `kind` in place of its own, or with none. */
+export function withKindPrefix(input: string, kind: SearchKind | undefined): string {
+  const { text } = parseSearchInput(input);
+  return kind === undefined ? text : `${KIND_PREFIX[kind]}:${text}`;
+}
 
 /** The list routes a result or a "show in list" link can lead to. */
 type ListRoute =
@@ -229,17 +281,19 @@ export function toHit(
         `#${id}`,
       );
     }
-    case "group": {
+    case "group":
+    case "privilege": {
+      // Organizational and privilege groups alike open the record of the group.
       const id = text(item, "id");
-      return peek(
-        id,
-        text(item, "role"),
-        facts(
-          text(item, "privilege") === "T" ? t("search.privilege") : "",
-          text(item, "description"),
-        ),
-        `#${id}`,
-      );
+      if (id === "") return null;
+      return {
+        key: `${kind}:${id}`,
+        kind,
+        label: text(item, "role"),
+        context: facts(text(item, "description")),
+        ref: `#${id}`,
+        target: { peek: { kind: "group", id } },
+      };
     }
     case "request": {
       const id = text(item, "id");
@@ -254,7 +308,7 @@ export function toHit(
           last === name ? "" : last,
           text(item, "status"),
           text(item, "creator"),
-          formatDate(text(item, "last_update"), locale),
+          formatDate(text(item, "last_update")),
         ),
         ref: `#${id}`,
         target: list("/requests/all", "id", `eq:${id}`),

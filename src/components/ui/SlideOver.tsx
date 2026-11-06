@@ -8,8 +8,9 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import { CloseIcon } from "./icons";
-import { RAIL_VISIBLE, RESIZE_VISIBLE, RESIZED_WIDTH } from "./slide-over-layout";
+import { CloseIcon, PanelSideIcon } from "./icons";
+import { usePanelSide } from "./panel-side";
+import { RESIZE_VISIBLE, RESIZED_WIDTH, ROOM_BESIDE } from "./slide-over-layout";
 import { useShortcut } from "@/lib/shortcuts";
 import { panelOpened } from "./slide-over-open";
 import { leaveWidth, takeOverWidth } from "./slide-over-resize";
@@ -17,13 +18,18 @@ import {
   contentFloor,
   DEFAULT_WIDTH,
   MIN_WIDTH,
+  PANEL_MIN_WIDTH_ATTR,
   setPanelWidth,
   usePanelWidth,
   widthToFit,
 } from "./slide-over-width";
+import { MODAL_BACKDROP } from "./Modal";
 
 /**
- * Side panel sliding in from the right.
+ * Side panel sliding in from an edge of the window: the right one, or the left one
+ * when the shell says so (`PanelSideContext`), the panel then mirrored — its handle
+ * on its right edge. The shell may also give the
+ * button, in the header, that moves every panel to the other edge.
  *
  * Not modal: the table stays readable and usable while it is open. It stays mounted
  * at all times so that entering and leaving are animated; closed, `inert` takes it
@@ -62,7 +68,7 @@ export function SlideOver({
   closeOnOutsideClick = true,
   actions,
   heading,
-  rail,
+  reopenable = false,
   resizeLabel,
   children,
 }: {
@@ -94,28 +100,25 @@ export function SlideOver({
    */
   heading?: ReactNode;
   /**
-   * A zone of its own on the right of the panel, over its whole height: a history
-   * of what it showed, say. Against the edge of the window, it stays where it is
-   * when the record zone changes width. Its width adds to the panel's. Shown only while the panel is open, and only
-   * where the window is wider than the panel (`RAIL_VISIBLE`); the caller places a
-   * fallback in the header for the narrower windows. A click in it is a click in
-   * the panel: it does not close it.
+   * A record panel, which the "p" key reopens (`PanelAnchor`) and puts away: a form
+   * being filled is not closed by a stray key.
    */
-  rail?: ReactNode;
+  reopenable?: boolean;
   /**
-   * Name of the handle on the left edge, which makes the panel resizable: dragged
+   * Name of the handle on the inner edge — the left one of a panel on the right —
+   * which makes the panel resizable: dragged
    * with the mouse, or moved with the arrow keys once focused; a double-click, or
    * Enter, gives the default width back. The handle is the left edge of the whole
-   * panel, `rail` included, and the width it sets is that of the record zone. It does not get narrower than its content
+   * panel. It does not get narrower than its content
    * allows without a horizontal scrollbar (`contentFloor`). The width is kept for every panel of the
    * same `size` (`slide-over-width.ts`). Without a name, no handle.
    */
   resizeLabel?: string;
   children: ReactNode;
 }) {
+  const { side, switchSide, switchLabel } = usePanelSide();
+  const left = side === "left";
   const panel = useRef<HTMLDivElement>(null);
-  // The two zones of the panel: the record, and what stands on its right (`rail`).
-  const railZone = useRef<HTMLDivElement>(null);
   const main = useRef<HTMLDivElement>(null);
   const opener = useRef<Element | null>(null);
   const mounted = useRef(false);
@@ -130,14 +133,11 @@ export function SlideOver({
   // the drag starts.
   const dragFloor = useRef<number | null>(null);
 
-  /**
-   * The edge follows the pointer: the panel is anchored to the right of the window.
-   * The width chosen is that of the record zone; the rail keeps its own.
-   */
+  /** The edge follows the pointer: the panel is anchored to its edge of the window. */
   function onHandlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
     if (dragFloor.current === null) return;
-    const railWidth = railZone.current?.offsetWidth ?? 0;
-    setPanelWidth(size, window.innerWidth - event.clientX - railWidth, false, dragFloor.current);
+    const reach = left ? event.clientX : window.innerWidth - event.clientX;
+    setPanelWidth(size, reach, false, dragFloor.current);
   }
 
   function onHandlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
@@ -179,16 +179,13 @@ export function SlideOver({
     const element = main.current;
     if (element === null) return;
     const current = element.getBoundingClientRect().width;
-    setPanelWidth(
-      size,
-      current + (event.key === "ArrowLeft" ? KEY_STEP : -KEY_STEP),
-      true,
-      contentFloor(element),
-    );
+    // The arrow pointing away from the panel's edge of the window widens it.
+    const widens = event.key === (left ? "ArrowRight" : "ArrowLeft");
+    setPanelWidth(size, current + (widens ? KEY_STEP : -KEY_STEP), true, contentFloor(element));
     setFit(null);
   }
 
-  // Widens the record zone when its content does not fit: a width chosen on a
+  // Widens the panel when its content does not fit: a width chosen on a
   // record with little to show would otherwise squeeze the next one. Measured once
   // the panel has settled, then each time its content changes — data arriving,
   // another tab. The panel only grows while the same record is on display: it does
@@ -212,7 +209,13 @@ export function SlideOver({
     };
     schedule();
     const observer = new MutationObserver(schedule);
-    observer.observe(zone, { childList: true, subtree: true });
+    // The widths an element declares (`PANEL_MIN_WIDTH_ATTR`) as well as the content.
+    observer.observe(zone, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: [PANEL_MIN_WIDTH_ATTR],
+    });
     return () => {
       window.clearTimeout(timer);
       observer.disconnect();
@@ -232,11 +235,9 @@ export function SlideOver({
     };
   }, [open]);
 
-  // "p" opens the record panel from the keyboard (`PanelAnchor`) and puts it away
-  // again. Only a panel with a rail — a record, with its history — answers it: a
-  // form being filled is not closed by a stray key.
+  // "p" opens the record panel from the keyboard (`PanelAnchor`) and puts it away again.
   useShortcut("p", () => {
-    if (!open || rail === undefined) return false;
+    if (!open || !reopenable) return false;
     onClose();
     return true;
   });
@@ -278,6 +279,8 @@ export function SlideOver({
       if (!(target instanceof Element)) return;
       if (panel.current?.contains(target) === true) return;
       if (target.closest(INTERACTIVE) !== null) return;
+      // The backdrop of a modal opened from the panel closes the modal only.
+      if (target.closest(MODAL_BACKDROP) !== null) return;
       // An entry in progress in the panel — an attribute being edited — counts as a
       // form: it is not cleared by a click beside it.
       const focused = document.activeElement;
@@ -308,10 +311,10 @@ export function SlideOver({
           ? undefined
           : ({ "--panel-width": `${String(width)}px` } as CSSProperties)
       }
-      // As wide as its two zones, within the window: the record zone gives way first.
-      className={`fixed inset-y-0 right-0 z-10 flex max-w-full border-l border-line bg-surface-raised shadow-lg transition-transform duration-200 ease-out ${
-        open ? "translate-x-0" : "translate-x-full"
-      }`}
+      // As wide as its content, within the window.
+      className={`fixed inset-y-0 z-10 flex max-w-full border-line bg-surface-raised shadow-lg transition-transform duration-200 ease-out ${
+        left ? "left-0 border-r" : "right-0 border-l"
+      } ${open ? "translate-x-0" : left ? "-translate-x-full" : "translate-x-full"}`}
     >
       <div
         ref={main}
@@ -327,6 +330,18 @@ export function SlideOver({
             </>
           )}
           <div className="ml-auto flex items-center gap-2">{actions}</div>
+          {switchSide !== undefined && switchLabel !== undefined && (
+            // Where the panel leaves room beside it: a narrower window fills with it.
+            <button
+              type="button"
+              onClick={switchSide}
+              title={switchLabel}
+              className={`h-7 w-7 items-center justify-center rounded-(--radius-control) border border-line text-ink-muted hover:text-ink ${ROOM_BESIDE[size]}`}
+            >
+              <PanelSideIcon side={left ? "right" : "left"} />
+              <span className="sr-only">{switchLabel}</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}
@@ -340,11 +355,6 @@ export function SlideOver({
         {subheader}
         <div className="min-h-0 flex-1 overflow-y-auto p-3">{children}</div>
       </div>
-      {open && rail !== undefined && (
-        <div ref={railZone} className={`shrink-0 flex-col ${RAIL_VISIBLE[size]}`}>
-          {rail}
-        </div>
-      )}
       {open && resizeLabel !== undefined && (
         <div
           role="separator"
@@ -363,7 +373,9 @@ export function SlideOver({
             setPanelWidth(size, undefined);
           }}
           onKeyDown={onHandleKeyDown}
-          className={`absolute inset-y-0 left-0 z-10 w-2 -translate-x-1/2 cursor-col-resize touch-none outline-none hover:bg-accent/40 focus-visible:bg-accent/40 active:bg-accent/60 ${RESIZE_VISIBLE[size]}`}
+          className={`absolute inset-y-0 z-10 w-2 cursor-col-resize ${
+            left ? "right-0 translate-x-1/2" : "left-0 -translate-x-1/2"
+          } touch-none outline-none hover:bg-accent/40 focus-visible:bg-accent/40 active:bg-accent/60 ${RESIZE_VISIBLE[size]}`}
         />
       )}
     </div>

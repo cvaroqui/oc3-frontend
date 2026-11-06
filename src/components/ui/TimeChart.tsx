@@ -6,6 +6,7 @@ import {
   type KeyboardEvent,
   type PointerEvent,
 } from "react";
+import { dateTimeFormat } from "@/lib/date-format";
 
 export interface TimeSeries {
   key: string;
@@ -18,7 +19,7 @@ export interface TimeSeries {
 export interface TimeChartLabels {
   /** Accessible name of the chart. */
   title: string;
-  /** Name of the row the folded series are summed into. */
+  /** Name of the series the folded ones are summed into, or reduced to their highest value. */
   other: string;
   /** Summary of the disclosure holding the table of the values. */
   table: string;
@@ -63,15 +64,28 @@ const HEIGHT = 220;
 const PAD = { top: 12, right: 12, bottom: 24, left: 48 };
 
 /**
- * Up to eight series keep their own colour, in a fixed order; beyond, the last
- * ones are summed into an "Other" series rather than given a ninth colour.
+ * How the series beyond the colours are folded: summed, for quantities that add up
+ * (packets, transfers), or reduced to their highest value, for shares that do not
+ * (a percentage of use).
  */
-function capSeries(series: TimeSeries[], otherName: string): TimeSeries[] {
+export type TimeChartFold = "sum" | "max";
+
+/**
+ * Up to eight series keep their own colour, in a fixed order; beyond, the last
+ * ones are folded into an "Other" series rather than given a ninth colour.
+ */
+function capSeries(series: TimeSeries[], otherName: string, fold: TimeChartFold): TimeSeries[] {
   if (series.length <= SLOTS) return series;
   const kept = series.slice(0, SLOTS - 1);
   const sums = new Map<number, number>();
   for (const s of series.slice(SLOTS - 1))
-    for (const [t, v] of s.points) sums.set(t, (sums.get(t) ?? 0) + v);
+    for (const [t, v] of s.points) {
+      const previous = sums.get(t);
+      sums.set(
+        t,
+        previous === undefined ? v : fold === "max" ? Math.max(previous, v) : previous + v,
+      );
+    }
   const points = [...sums.entries()].sort((a, b) => a[0] - b[0]);
   return [...kept, { key: "__other", name: otherName, points }];
 }
@@ -144,16 +158,18 @@ export function TimeChart({
   series: input,
   stack,
   unit,
+  fold = "sum",
   labels,
   locale,
 }: {
   series: TimeSeries[];
   stack: boolean;
   unit?: string;
+  fold?: TimeChartFold;
   labels: TimeChartLabels;
   locale: string;
 }) {
-  const series = useMemo(() => capSeries(input, labels.other), [input, labels.other]);
+  const series = useMemo(() => capSeries(input, labels.other, fold), [input, labels.other, fold]);
   const box = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(600);
   const [active, setActive] = useState<number | null>(null);
@@ -199,14 +215,12 @@ export function TimeChart({
   // Points closer than a day carry their time: the axis and the tooltip show it.
   const intraday = dates.some((t, i) => i > 0 && t - (dates[i - 1] ?? t) < 24 * 3600);
   const shortSpan = (dates[dates.length - 1] ?? 0) - (dates[0] ?? 0) <= 2 * 24 * 3600;
-  const dayFormat = new Intl.DateTimeFormat(
-    locale,
+  const dayFormat = dateTimeFormat(
     shortSpan && intraday
       ? { hour: "2-digit", minute: "2-digit" }
       : { month: "short", day: "numeric" },
   );
-  const fullDate = new Intl.DateTimeFormat(
-    locale,
+  const fullDate = dateTimeFormat(
     intraday ? { dateStyle: "medium", timeStyle: "short" } : { dateStyle: "medium" },
   );
 

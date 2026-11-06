@@ -4,10 +4,12 @@ import { DateTime } from "@/components/ui/DateTime";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import type { components } from "@/lib/api/schema";
+import { SelectionDeleteMenu } from "@/components/opensvc/SelectionDeleteMenu";
 import { api } from "@/lib/api/client";
 import { problemText } from "@/lib/api/problem";
 import { toPage } from "@/lib/api/page";
-import { filterQuery, filtersKey } from "@/lib/column-filters";
+import { filterQuery, filtersKey, type ColumnFilters } from "@/lib/column-filters";
+import { STATS_LIMIT, toValueStats, type ValueStats } from "@/lib/api/value-stats";
 import {
   CollectorList,
   type ColumnFilterSpec,
@@ -124,7 +126,7 @@ const COLUMNS: ListColumn<IpRow>[] = IP_PROPS.map((prop) => ({
   numeric: NUMERIC_PROPS.has(prop),
   family: FAMILY[prop] ?? "node",
   filter: FILTERS[prop],
-  render: (row: IpRow, locale: string) => {
+  render: (row: IpRow) => {
     const value = row[prop];
     if (prop === "nodename")
       return (
@@ -132,8 +134,7 @@ const COLUMNS: ListColumn<IpRow>[] = IP_PROPS.map((prop) => ({
           {value}
         </CrossLink>
       );
-    if (DATE_PROPS.has(prop) && typeof value === "string")
-      return <DateTime value={value} locale={locale} />;
+    if (DATE_PROPS.has(prop) && typeof value === "string") return <DateTime value={value} />;
     return value;
   },
 }));
@@ -148,6 +149,17 @@ function queryProps(cols: string[] | undefined): string {
   const shown = visibleProps(cols, DEFAULT_COLS, ALL_PROPS);
   const extra = shown.includes("nodename") ? ["node_id"] : [];
   return [...new Set(["id", ...shown, ...extra])].join(",");
+}
+
+/**
+ * The distribution of a column's values over the selection: the filters given
+ * apply, not the pagination.
+ */
+async function ipStats(prop: string, filters: ColumnFilters): Promise<ValueStats> {
+  const query = { props: prop, stats: "1", limit: STATS_LIMIT, filter: filterQuery(filters) };
+  const response = await api.GET("/ips", { params: { query } });
+  if (response.error !== undefined) throw new Error(problemText(response.error));
+  return toValueStats(response.data.data, response.data.meta, prop);
 }
 
 /**
@@ -196,6 +208,16 @@ export function NetworksPage() {
   );
   const navigate = useNavigate({ from: "/networks" });
   const { data, isPending, isError, error, isFetching } = useIps(search);
+  // The rows checked, and those just deleted, for the list to untick them.
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [deleted, setDeleted] = useState<string[]>([]);
+  // Names from the page on display: a selection extended to the following pages does
+  // not have them all, so the id then serves as a fallback in the messages.
+  const names = new Map<string, string>();
+  for (const row of data?.rows ?? []) {
+    const id = row.id === undefined ? undefined : String(row.id);
+    if (id !== undefined && row.addr !== undefined) names.set(id, row.addr);
+  }
 
   /** Ids of the whole selection, without pagination. */
   async function allIds(): Promise<string[]> {
@@ -262,17 +284,32 @@ export function NetworksPage() {
             ● {created}
           </span>
         )}
+        {/* On the rows checked in the list; nothing checked, no menu. */}
+        <SelectionDeleteMenu
+          targets={selectedIds.map((id) => ({ id, name: names.get(id) ?? id }))}
+          prefix="networks.actions"
+          privileges={["NodeManager"]}
+          remove={async (id) => {
+            const { error } = await api.DELETE("/ips/{id}", { params: { path: { id } } });
+            return error === undefined ? null : problemText(error);
+          }}
+          invalidate={[["ips"]]}
+          onDeleted={(ids) => {
+            setDeleted(ids);
+            // The detail of a deleted object has nothing left to show.
+            if (search.sel !== undefined && ids.includes(search.sel)) update({ sel: undefined });
+          }}
+        />
       </div>
 
       <CollectorList
+        viewPrefs={prefs}
         columns={COLUMNS}
         defaultCols={DEFAULT_COLS}
         rows={data?.rows ?? []}
         rowId={(row) => (row.id === undefined ? undefined : String(row.id))}
         search={search}
         onChange={update}
-        // The collector's filtersets do not apply to addresses.
-        filtersets={[]}
         isPending={isPending}
         isFetching={isFetching}
         errorMessage={isError ? error.message : null}
@@ -280,6 +317,9 @@ export function NetworksPage() {
         exportPage={(page) => fetchIps({ ...search, ...page })}
         total={data?.total}
         selectAllMatching={allIds}
+        onSelectionChange={setSelectedIds}
+        unselect={deleted}
+        valueStats={ipStats}
         filterable
       />
 

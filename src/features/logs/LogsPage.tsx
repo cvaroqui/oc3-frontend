@@ -3,8 +3,8 @@ import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import type { components } from "@/lib/api/schema";
 import { api } from "@/lib/api/client";
+import { problemText } from "@/lib/api/problem";
 import { toPage } from "@/lib/api/page";
-import { useFiltersets } from "@/lib/api/filtersets";
 import {
   CollectorList,
   type ColumnFilterOption,
@@ -22,7 +22,8 @@ import {
   visibleProps,
   type ResolvedListSearch,
 } from "@/lib/list-search";
-import { filterQuery, filtersKey } from "@/lib/column-filters";
+import { filterQuery, filtersKey, type ColumnFilters } from "@/lib/column-filters";
+import { STATS_LIMIT, toValueStats, type ValueStats } from "@/lib/api/value-stats";
 import { useViewPrefs, withSavedSearch } from "@/lib/user-prefs";
 import { LogDetailPanel } from "./LogDetailPanel";
 import { formatLogMessage, logLevelState } from "./log-message";
@@ -114,6 +115,17 @@ function queryProps(cols: string[] | undefined): string {
 }
 
 /**
+ * The distribution of a column's values over the selection: the filters given
+ * apply, not the pagination.
+ */
+async function logStats(prop: string, filters: ColumnFilters): Promise<ValueStats> {
+  const query = { props: prop, stats: "1", limit: STATS_LIMIT, filter: filterQuery(filters) };
+  const response = await api.GET("/logs", { params: { query } });
+  if (response.error !== undefined) throw new Error(problemText(response.error));
+  return toValueStats(response.data.data, response.data.meta, prop);
+}
+
+/**
  * One page of the list, read with the sort, the filters and the columns of `search`.
  * The view reads the page on display with it, and the export every page in turn.
  */
@@ -127,7 +139,6 @@ async function fetchLogs(search: ResolvedListSearch) {
         offset: search.offset,
         limit: search.limit + 1,
         filter: filterQuery(search.filters),
-        ...(search.fset === "" ? {} : { fset_id: search.fset }),
       },
     },
   });
@@ -143,7 +154,6 @@ function useLogs(search: ResolvedListSearch) {
       search.sort,
       search.offset,
       search.limit,
-      search.fset,
       search.cols,
       filtersKey(search.filters),
     ],
@@ -163,9 +173,8 @@ export function LogsPage() {
   );
   const navigate = useNavigate({ from: "/logs" });
   const { data, isPending, isError, error, isFetching } = useLogs(search);
-  const filtersets = useFiltersets();
 
-  /** Ids of the whole selection, filterset and filters included, without pagination. */
+  /** Ids of the whole selection, filters included, without pagination. */
   async function allIds(): Promise<string[]> {
     const { data, error } = await api.GET("/logs", {
       params: {
@@ -173,7 +182,6 @@ export function LogsPage() {
           props: "id",
           limit: 0,
           filter: filterQuery(search.filters),
-          ...(search.fset === "" ? {} : { fset_id: search.fset }),
         },
       },
     });
@@ -203,9 +211,9 @@ export function LogsPage() {
     // The message filters on the format and the values filling it together (the
     // API compares both): a node or tag name typed there is among the values.
     filter: prop === "log_level" ? { kind: "enum", options: LEVEL_OPTIONS } : undefined,
-    render: (row: LogRow, locale: string) => {
+    render: (row: LogRow) => {
       const value = row[prop];
-      if (prop === "log_date") return <DateTime value={row.log_date} locale={locale} />;
+      if (prop === "log_date") return <DateTime value={row.log_date} />;
       if (prop === "log_level")
         return row.log_level === undefined ? undefined : (
           <StatusBadge state={logLevelState(row.log_level)} label={row.log_level} />
@@ -250,13 +258,13 @@ export function LogsPage() {
       </div>
 
       <CollectorList
+        viewPrefs={prefs}
         columns={columns}
         defaultCols={DEFAULT_COLS}
         rows={data?.rows ?? []}
         rowId={(row) => (row.id === undefined ? undefined : String(row.id))}
         search={search}
         onChange={update}
-        filtersets={filtersets.data ?? []}
         isPending={isPending}
         isFetching={isFetching}
         errorMessage={isError ? error.message : null}
@@ -264,6 +272,7 @@ export function LogsPage() {
         exportPage={(page) => fetchLogs({ ...search, ...page })}
         total={data?.total}
         selectAllMatching={allIds}
+        valueStats={logStats}
         filterable
       />
 

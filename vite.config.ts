@@ -1,7 +1,27 @@
+import { execSync } from "node:child_process";
 import { fileURLToPath, URL } from "node:url";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig, loadEnv, mergeConfig } from "vite";
+import { singleFile } from "./vite-single-file";
+
+/**
+ * The version of the interface built: the one the image is built for, which has no
+ * git, else the release tag of the commit, or how far past one, "-dirty" with changes
+ * not committed. Empty without either.
+ */
+function appVersion(version: string | undefined): string {
+  if (version !== undefined && version !== "") return version;
+  try {
+    return execSync("git describe --tags --always --dirty", {
+      stdio: ["ignore", "pipe", "ignore"],
+    })
+      .toString()
+      .trim();
+  } catch {
+    return "";
+  }
+}
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
@@ -14,8 +34,13 @@ export default defineConfig(({ mode }) => {
   // Empty in local dev: the server is then reached by its IP.
   const publicHost = env.OC3_PUBLIC_HOST ?? "";
 
-  return {
-    plugins: [react(), tailwindcss()],
+  // `vite build --mode single`: the whole application as one index.html.
+  const single =
+    mode === "single" ? singleFile(fileURLToPath(new URL("./public", import.meta.url))) : undefined;
+
+  const base = {
+    define: { __APP_VERSION__: JSON.stringify(appVersion(env.VERSION)) },
+    plugins: [react(), tailwindcss(), ...(single === undefined ? [] : [single.plugin])],
     resolve: {
       alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
     },
@@ -30,11 +55,14 @@ export default defineConfig(({ mode }) => {
       hmr: publicHost ? { host: publicHost, protocol: "wss", clientPort: 443 } : undefined,
       // In dev, the frontend talks to apicollector through this proxy: no CORS to handle.
       proxy: {
-        "/api": { target, changeOrigin: true, secure: false },
+        // xfwd passes the client address on (X-Forwarded-For), which the collector
+        // records, as the source of a safe upload for instance.
+        "/api": { target, changeOrigin: true, secure: false, xfwd: true },
         // The websocket of the oc3 messenger, which announces the changes: on the
         // same origin as the rest, so that the page needs no other address.
         "/realtime": { target: realtimeTarget, ws: true, changeOrigin: true, secure: false },
       },
     },
   };
+  return single === undefined ? base : mergeConfig(base, single.config);
 });

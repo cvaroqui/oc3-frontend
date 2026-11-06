@@ -10,14 +10,24 @@ const PILL =
  * not move from one object to the next.
  *
  * When the summary is broken down (alerts by severity), the pill is cut into
- * sections, one per non-empty share, tinted by its category. Only the numbers are
+ * sections, one per non-empty share (every share with `keepEmptyParts`), tinted by
+ * its category. Only the numbers are
  * shown, as requested: a deliberate departure from the "never colour alone" rule,
  * offset by the fixed order of the sections (from the most severe to the least) and
  * by the full labels in the tooltip and for screen readers (see notes.md).
  */
-export function RelatedCount({ tab, id }: { tab: RelatedTab; id: string | undefined }) {
+export function RelatedCount({
+  tab,
+  id,
+  active,
+}: {
+  tab: RelatedTab;
+  id: string | undefined;
+  /** The tab is the one on display. */
+  active: boolean;
+}) {
   const { t } = useTranslation();
-  const { count, parts = [], notApplicable } = tab.useSummary(id);
+  const { count, parts = [], notApplicable, keepEmptyParts } = tab.useSummary(id, active);
   // Not applicable: said, dimmed as a zero, rather than a count the tab cannot give.
   if (notApplicable !== undefined)
     return (
@@ -27,7 +37,7 @@ export function RelatedCount({ tab, id }: { tab: RelatedTab; id: string | undefi
       </span>
     );
   if (count === undefined) return null;
-  const shown = parts.filter((part) => part.count > 0);
+  const shown = keepEmptyParts === true ? parts : parts.filter((part) => part.count > 0);
   if (count === 0 || shown.length === 0) {
     return (
       <span

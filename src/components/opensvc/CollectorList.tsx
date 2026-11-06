@@ -11,7 +11,6 @@ import {
   type VisibilityState,
 } from "@tanstack/react-table";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
 import { useLocation } from "@tanstack/react-router";
 import {
   CloseIcon,
@@ -20,26 +19,30 @@ import {
   FilterIcon,
   ResetIcon,
   SearchIcon,
+  SlidersIcon,
 } from "@/components/ui/icons";
 import type { ListPage } from "@/lib/api/page";
 import { download, toCsv, toXlsx, type ExportFormat } from "@/lib/export/table";
-import { EnumFilter } from "@/components/ui/EnumFilter";
-import { TextFilter } from "@/components/ui/TextFilter";
 import { ColumnFamilyIcon, type ColumnFamily } from "./ColumnFamily";
-import {
-  invertFilter,
-  isInverted,
-  toEnumValues,
-  toTextDraft,
-  withFilter,
-  filtersKey,
-  type ColumnFilters,
-} from "@/lib/column-filters";
+import { invertFilter, isInverted, withFilter, type ColumnFilters } from "@/lib/column-filters";
 import type { ValueStats } from "@/lib/api/value-stats";
-import { ColumnDistribution } from "./ColumnDistribution";
-import { PAGE_SIZES, visibleProps, type ResolvedListSearch } from "@/lib/list-search";
+import { ColumnFilterPopover } from "./ColumnFilterPopover";
+import { TransientNotice, type NoticeTone } from "@/components/ui/TransientNotice";
+import type { FiltersetSource } from "@/lib/filterset-entries";
+import { SaveAsFilterset } from "./SaveAsFilterset";
+import { nextNoticeId } from "@/components/ui/use-auto-dismiss";
+import { describeFilter, isFilterable } from "./list-filter-describe";
+import {
+  DEFAULT_LIMIT,
+  PAGE_SIZES,
+  visibleProps,
+  type ResolvedListSearch,
+} from "@/lib/list-search";
+import type { ViewPrefsControl } from "@/lib/user-prefs";
 import { readProp } from "@/lib/row";
+import { labelMatches, normalizeSearch } from "@/lib/label-search";
 import { FlashCell, FlashScope } from "./Flash";
+import { useFitColumns, useFitColumnsEnabled } from "@/components/ui/use-fit-columns";
 
 export interface ListColumn<T> {
   /** Name of the apicollector prop: used for sorting and for picking the requested columns. */
@@ -59,11 +62,10 @@ export interface ListColumn<T> {
    */
   filter?: ColumnFilterSpec;
   /**
-   * Whether the filter offers the distribution of the column's values, in a list
-   * given `valueStats`. By default yes, but for dates and times, nearly one value
-   * per row.
+   * How a value of the column reads in its distribution when no option names it:
+   * a size in MiB as "1 GiB", say. The filter keeps the value itself.
    */
-  distribution?: boolean;
+  formatValue?: (value: string, locale: string) => string;
   render: (row: T, locale: string) => ReactNode;
 }
 
@@ -138,7 +140,6 @@ export function CollectorList<T>({
   rowId,
   search,
   onChange,
-  filtersets,
   isPending,
   isFetching,
   errorMessage,
@@ -152,6 +153,9 @@ export function CollectorList<T>({
   unselect,
   reselect,
   valueStats,
+  filtersetSource,
+  onRowOpen,
+  viewPrefs,
 }: {
   columns: ListColumn<T>[];
   /** Props shown as long as the user has not chosen their columns. */
@@ -160,7 +164,6 @@ export function CollectorList<T>({
   rowId: (row: T) => string | undefined;
   search: ResolvedListSearch;
   onChange: (next: Partial<ResolvedListSearch>) => void;
-  filtersets: string[];
   isPending: boolean;
   isFetching: boolean;
   errorMessage: string | null;
@@ -209,9 +212,25 @@ export function CollectorList<T>({
   /**
    * Counts the values of a column over the selection, with the filters given in
    * place of those of the moment: the view knows its endpoint. With it, the filter
-   * of each column offers the distribution of its values (see ColumnDistribution).
+   * of each column offers the distribution of its values (see ColumnValues).
    */
   valueStats?: (prop: string, filters: ColumnFilters) => Promise<ValueStats>;
+  /**
+   * How the columns map onto the tables of a filterset: with it, the filter bar
+   * offers to save the active filters as a filterset (see SaveAsFilterset).
+   */
+  filtersetSource?: FiltersetSource;
+  /**
+   * What a row opens, in place of the detail panel of `search.sel`: a page of its
+   * own, say. The row then announces no dialog.
+   */
+  onRowOpen?: (row: T) => void;
+  /**
+   * The settings of the list in this tab and the user's defaults (`useViewPrefs`):
+   * with it, the toolbar offers to save the tab's columns, sort, filters and page
+   * size as the defaults, or to go back to them.
+   */
+  viewPrefs?: ViewPrefsControl;
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language;
@@ -225,9 +244,70 @@ export function CollectorList<T>({
   const pickerSearch = useRef<HTMLInputElement>(null);
   const exportMenu = useRef<HTMLDetailsElement>(null);
   const { pathname } = useLocation();
+  // Whether the export takes the hidden columns too; off, those on display only.
+  const [exportHidden, setExportHidden] = useState(false);
   // Rows read so far by the export under way, or null when none is.
   const [exported, setExported] = useState<number | null>(null);
-  const [exportNotice, setExportNotice] = useState<{ error: boolean; text: string } | null>(null);
+  // The report of the last export, numbered, never twice: a new one starts its time again.
+  const [exportNotice, setExportNoticeState] = useState<{
+    id: number;
+    tone: NoticeTone;
+    text: string;
+  } | null>(null);
+  function setExportNotice(next: { tone: NoticeTone; text: string } | null) {
+    setExportNoticeState(next === null ? null : { ...next, id: nextNoticeId() });
+  }
+  const viewMenu = useRef<HTMLDetailsElement>(null);
+  const [savingDefault, setSavingDefault] = useState(false);
+  // The report of the last save of the defaults, numbered as the export's.
+  const [viewNotice, setViewNoticeState] = useState<{
+    id: number;
+    tone: NoticeTone;
+    text: string;
+  } | null>(null);
+  function setViewNotice(next: { tone: NoticeTone; text: string } | null) {
+    setViewNoticeState(next === null ? null : { ...next, id: nextNoticeId() });
+  }
+
+  /** Saves the columns, sort, filters and page size shown as the user's defaults. */
+  async function saveAsDefault() {
+    if (viewPrefs === undefined) return;
+    setSavingDefault(true);
+    try {
+      await viewPrefs.saveAsDefault({
+        cols: search.cols,
+        sort: search.sort,
+        filters: search.filters,
+        limit: search.limit,
+      });
+      setViewNotice({ tone: "success", text: t("list.view.saved") });
+      if (viewMenu.current !== null) viewMenu.current.open = false;
+    } catch (error) {
+      setViewNotice({
+        tone: "error",
+        text: t("list.view.saveFailed", {
+          message: error instanceof Error ? error.message : String(error),
+        }),
+      });
+    } finally {
+      setSavingDefault(false);
+    }
+  }
+
+  /** Shows the user's defaults again, the settings of the tab forgotten. */
+  function restoreDefault() {
+    if (viewPrefs === undefined) return;
+    const { defaults } = viewPrefs;
+    onChange({
+      cols: defaults.cols,
+      sort: defaults.sort,
+      filters: defaults.filters ?? {},
+      limit: defaults.limit ?? DEFAULT_LIMIT,
+    });
+    // After the change, which the tab records: the tab follows the defaults again.
+    viewPrefs.restoreDefault();
+    if (viewMenu.current !== null) viewMenu.current.open = false;
+  }
 
   /**
    * Escape closes the column picker and gives the focus back to its button.
@@ -246,12 +326,13 @@ export function CollectorList<T>({
   }
 
   /**
-   * A click outside the open column picker closes it, as the other menus close; the
-   * click then does what it does anywhere else. `<details>` stays open by itself.
+   * A click outside an open menu of the toolbar — columns, export, view — closes
+   * it, as the other menus close; the click then does what it does anywhere else.
+   * `<details>` stays open by itself.
    */
   useEffect(() => {
     function onPointerDown(event: PointerEvent) {
-      for (const element of [picker.current, exportMenu.current]) {
+      for (const element of [picker.current, exportMenu.current, viewMenu.current]) {
         if (element === null || !element.open) continue;
         if (event.target instanceof Node && element.contains(event.target)) continue;
         element.open = false;
@@ -267,6 +348,16 @@ export function CollectorList<T>({
   // At least one page, even for an empty list.
   const pageCount = total === undefined ? undefined : Math.max(1, Math.ceil(total / search.limit));
   const shown = visibleProps(search.cols, defaultCols, allProps);
+
+  // The columns asked that the width holds, from the first: those after them are
+  // hidden, not unticked, and come back when the window widens. The columns
+  // asked stay what the picker, the saved view and the export know.
+  const [fitEnabled, setFitEnabled] = useFitColumnsEnabled();
+  const shownKey = shown.join("\u0000");
+  const fitContent = useMemo(() => ({ rows, shownKey }), [rows, shownKey]);
+  const fit = useFitColumns(shown.length, fitContent, fitEnabled);
+  const fitted = new Set(shown.slice(0, fit.shown));
+  const hiddenForWidth = shown.slice(fit.shown);
 
   const columnDefs = useMemo<ColumnDef<T>[]>(
     () =>
@@ -411,7 +502,10 @@ export function CollectorList<T>({
     setExportNotice(null);
     setExported(0);
     try {
-      const exportedProps = [...shown, ...allProps.filter((prop) => !shown.includes(prop))];
+      // The columns on display, in their order; the hidden ones after them on demand.
+      const exportedProps = exportHidden
+        ? [...shown, ...allProps.filter((prop) => !shown.includes(prop))]
+        : shown;
       const all: T[] = [];
       let truncated = false;
       for (let offset = 0; ; offset += EXPORT_CHUNK) {
@@ -442,14 +536,15 @@ export function CollectorList<T>({
       const blob = format === "csv" ? toCsv(content) : await toXlsx(content, view);
       download(blob, `${view}-${stamp}.${format}`);
       setExportNotice({
-        error: false,
+        // Cut short: the user did not get every row, which deserves the time of a warning.
+        tone: truncated ? "warning" : "success",
         text: truncated
           ? t("list.export.truncated", { count: all.length })
           : t("list.export.done", { count: all.length }),
       });
     } catch (error) {
       setExportNotice({
-        error: true,
+        tone: "error",
         text: t("list.export.error", {
           message: error instanceof Error ? error.message : String(error),
         }),
@@ -483,7 +578,6 @@ export function CollectorList<T>({
     search.limit,
     search.cols,
     search.filters,
-    search.fset,
   ]);
 
   // True once the list has shown its rows: a row mounted afterwards is one the
@@ -528,14 +622,11 @@ export function CollectorList<T>({
     if (isFetching || total === undefined || total === 0 || lastOffset === undefined) return;
     if (search.offset > lastOffset) onChange({ offset: lastOffset });
   }, [isFetching, total, lastOffset, search.offset, onChange]);
-  const needle = columnFilter.trim().toLowerCase();
+  // A column is found by its name in English or in French, without case nor accents.
+  const needle = normalizeSearch(columnFilter.trim());
   const pickerColumns = table
     .getAllLeafColumns()
-    .filter(
-      (column) =>
-        needle === "" ||
-        t(getMeta(column.columnDef).column.labelKey).toLowerCase().includes(needle),
-    );
+    .filter((column) => labelMatches(i18n, getMeta(column.columnDef).column.labelKey, needle));
   const sortableSomewhere = columns.some((column) => column.sortable !== false);
   const selectedCount = Object.values(rowSelection).filter(Boolean).length;
   const pageFullySelected = rows.length > 0 && table.getIsAllPageRowsSelected();
@@ -560,29 +651,6 @@ export function CollectorList<T>({
   return (
     <>
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-1 text-ink-muted" htmlFor="list-filterset">
-          {t("list.filterset")}
-          <select
-            id="list-filterset"
-            value={search.fset}
-            onChange={(event) => {
-              // The filter changes the population: what was ticked is not necessarily
-              // part of it any more, and "every page" would no longer speak of the same
-              // whole.
-              table.resetRowSelection();
-              onChange({ fset: event.target.value, offset: 0, sel: undefined });
-            }}
-            className="h-7 rounded-(--radius-control) border border-line bg-surface px-1 text-ink"
-          >
-            <option value="">{t("list.noFilterset")}</option>
-            {filtersets.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </label>
-
         <label className="flex items-center gap-1 text-ink-muted" htmlFor="list-page-size">
           {t("list.perPage")}
           <select
@@ -647,6 +715,9 @@ export function CollectorList<T>({
                       />
                       <ColumnFamilyIcon family={meta.family} />
                       {t(meta.labelKey)}
+                      {checked && !fitted.has(meta.prop) && (
+                        <span className="text-ink-muted">{t("list.fit.hiddenMark")}</span>
+                      )}
                       {search.filters[meta.prop] !== undefined && (
                         <span title={t("list.filters.active")} className="ml-auto text-accent">
                           <FilterIcon className="h-3 w-3" />
@@ -671,6 +742,39 @@ export function CollectorList<T>({
           </div>
         </details>
 
+        {hiddenForWidth.length > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              setFitEnabled(false);
+            }}
+            title={t("list.fit.hiddenTitle", {
+              columns: hiddenForWidth
+                .map((prop) => {
+                  const column = columns.find((entry) => entry.prop === prop);
+                  return column === undefined ? prop : t(column.labelKey);
+                })
+                .join(", "),
+            })}
+            className="flex h-7 items-center gap-1.5 rounded-(--radius-control) border border-line px-2 text-ink-muted hover:text-ink"
+          >
+            <ColumnsIcon />
+            {t("list.fit.hidden", { count: hiddenForWidth.length })}
+          </button>
+        )}
+        {fit.wouldHide && (
+          <button
+            type="button"
+            onClick={() => {
+              setFitEnabled(true);
+            }}
+            className="flex h-7 items-center gap-1.5 rounded-(--radius-control) border border-line px-2 text-ink-muted hover:text-ink"
+          >
+            <ColumnsIcon />
+            {t("list.fit.enable")}
+          </button>
+        )}
+
         {exportPage !== undefined && (
           <details ref={exportMenu} onKeyDown={onPickerKeyDown} className="relative">
             <summary
@@ -683,6 +787,21 @@ export function CollectorList<T>({
                 : t("list.export.running", { count: exported })}
             </summary>
             <div className="absolute z-20 mt-1 w-64 rounded-(--radius-panel) border border-line bg-surface-raised p-1 shadow-lg">
+              <label
+                className={`mb-1 flex items-center gap-2 border-b border-line px-2 py-1.5 ${
+                  allProps.length === shown.length ? "text-ink-muted" : "cursor-pointer"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={exportHidden && allProps.length > shown.length}
+                  disabled={exported !== null || allProps.length === shown.length}
+                  onChange={(event) => {
+                    setExportHidden(event.target.checked);
+                  }}
+                />
+                {t("list.export.withHidden", { count: allProps.length - shown.length })}
+              </label>
               {(["xlsx", "csv"] as const).map((format) => (
                 <button
                   key={format}
@@ -703,11 +822,55 @@ export function CollectorList<T>({
           </details>
         )}
 
+        {viewPrefs !== undefined && (
+          <details ref={viewMenu} onKeyDown={onPickerKeyDown} className="relative">
+            <summary className="flex h-7 cursor-pointer list-none items-center gap-1.5 rounded-(--radius-control) border border-line px-2 text-ink-muted hover:text-ink">
+              <SlidersIcon />
+              {t("list.view.label")}
+              {viewPrefs.customized && (
+                // A mark and a word: the view of this tab is its own.
+                <span className="text-accent">
+                  <span aria-hidden="true">●</span> {t("list.view.modified")}
+                </span>
+              )}
+            </summary>
+            <div className="absolute z-20 mt-1 w-80 rounded-(--radius-panel) border border-line bg-surface-raised p-1 shadow-lg">
+              <p className="px-2 py-1.5 text-ink-muted">
+                {viewPrefs.customized ? t("list.view.customized") : t("list.view.asDefault")}
+              </p>
+              <button
+                type="button"
+                disabled={savingDefault}
+                onClick={() => {
+                  void saveAsDefault();
+                }}
+                className="flex w-full items-center rounded-(--radius-control) px-2 py-1 text-left hover:bg-surface-sunken disabled:opacity-40"
+              >
+                {savingDefault ? t("list.view.saving") : t("list.view.save")}
+              </button>
+              <button
+                type="button"
+                disabled={!viewPrefs.customized}
+                onClick={restoreDefault}
+                className="flex w-full items-center rounded-(--radius-control) px-2 py-1 text-left hover:bg-surface-sunken disabled:opacity-40"
+              >
+                {t("list.view.restore")}
+              </button>
+              <p className="border-t border-line px-2 pt-1.5 pb-1 text-data text-ink-muted">
+                {t("list.view.hint")}
+              </p>
+            </div>
+          </details>
+        )}
+
         {selectedCount > 0 && (
           <span className="flex items-center gap-2 text-ink">
-            {allMatching
-              ? t("list.selectedEverywhere", { count: selectedCount })
-              : t("list.selected", { count: selectedCount })}
+            {/* In red: rows are ticked, and an action would apply to them. */}
+            <span className="font-medium text-state-down">
+              {allMatching
+                ? t("list.selectedEverywhere", { count: selectedCount })
+                : t("list.selected", { count: selectedCount })}
+            </span>
             {canSelectEverything && (
               // A second click on the header checkbox does the same, but nothing
               // announces it: this button makes the extension visible.
@@ -810,15 +973,39 @@ export function CollectorList<T>({
                     hidden ? "border-dashed border-line-strong" : "border-line"
                   }`}
                 >
-                  {column !== undefined && <ColumnFamilyIcon family={column.family} />}
-                  <span className="text-ink-muted">{label}</span>
-                  {isInverted(expr) && (
-                    <span className="font-medium text-ink">{t("list.filters.not")}</span>
-                  )}
-                  {column?.filter?.kind === "enum" ? (
-                    <span className="text-ink">{describeFilter(column, expr, t)}</span>
+                  {column === undefined ? (
+                    <>
+                      <span className="text-ink-muted">{label}</span>
+                      <code className="text-data text-ink">{expr}</code>
+                    </>
                   ) : (
-                    <code className="text-data text-ink">{describeFilter(column, expr, t)}</code>
+                    // The chip opens the filter of its column, header shown or not.
+                    <ColumnFilterPopover
+                      column={column}
+                      filters={search.filters}
+                      onChange={(next) => {
+                        setFilter(prop, next);
+                      }}
+                      valueStats={valueStats}
+                      scope={[pathname]}
+                      triggerClassName="flex h-full items-center gap-1 hover:text-ink"
+                      trigger={
+                        <>
+                          <ColumnFamilyIcon family={column.family} />
+                          <span className="text-ink-muted">{label}</span>
+                          {isInverted(expr) && (
+                            <span className="font-medium text-ink">{t("list.filters.not")}</span>
+                          )}
+                          {column.filter?.kind === "enum" ? (
+                            <span className="text-ink">{describeFilter(column, expr, t)}</span>
+                          ) : (
+                            <code className="text-data text-ink">
+                              {describeFilter(column, expr, t)}
+                            </code>
+                          )}
+                        </>
+                      }
+                    />
                   )}
                   {hidden && (
                     <span className="text-ink-muted italic">
@@ -863,17 +1050,42 @@ export function CollectorList<T>({
             <ResetIcon className="h-3.5 w-3.5" />
             {t("list.filters.clearAll", { count: activeFilters.length })}
           </button>
+          {filtersetSource !== undefined && (
+            <SaveAsFilterset
+              filters={search.filters}
+              source={filtersetSource}
+              describe={(prop, expr) => {
+                const column = columns.find((entry) => entry.prop === prop);
+                if (column === undefined) return `${prop} ${expr}`;
+                const not = isInverted(expr) ? `${t("list.filters.not")} ` : "";
+                return `${t(column.labelKey)} ${not}${describeFilter(column, expr, t)}`;
+              }}
+            />
+          )}
         </div>
       )}
 
+      {viewNotice !== null && (
+        <TransientNotice
+          id={viewNotice.id}
+          tone={viewNotice.tone}
+          text={viewNotice.text}
+          dismissLabel={t("list.export.dismiss")}
+          onDismiss={() => {
+            setViewNotice(null);
+          }}
+        />
+      )}
       {exportNotice !== null && (
-        <p
-          role={exportNotice.error ? "alert" : "status"}
-          className={`mb-2 ${exportNotice.error ? "text-state-down" : "text-ink-muted"}`}
-        >
-          {exportNotice.error ? "■ " : ""}
-          {exportNotice.text}
-        </p>
+        <TransientNotice
+          id={exportNotice.id}
+          tone={exportNotice.tone}
+          text={exportNotice.text}
+          dismissLabel={t("list.export.dismiss")}
+          onDismiss={() => {
+            setExportNotice(null);
+          }}
+        />
       )}
       {selectionError !== null && (
         <p role="alert" className="mb-2 text-state-down">
@@ -898,10 +1110,13 @@ export function CollectorList<T>({
       {/* A filterable list keeps its table when nothing matches: the filter row is
           where the filter that emptied it gets changed. */}
       {(rows.length > 0 || (filterable && !isPending)) && (
-        <div className="overflow-x-auto rounded-(--radius-panel) border border-line bg-surface-raised">
+        <div
+          ref={fit.containerRef}
+          className="overflow-x-auto rounded-(--radius-panel) border border-line bg-surface-raised"
+        >
           {/* What the list shows: changing it brings other rows, which are not updates. */}
           <FlashScope subject={viewSubject}>
-            <table className="w-full border-collapse text-data">
+            <table ref={fit.tableRef} className="w-full border-collapse text-data">
               <thead>
                 {table.getHeaderGroups().map((headerGroup) => (
                   <tr
@@ -926,95 +1141,86 @@ export function CollectorList<T>({
                         onChange={onToggleAll}
                       />
                     </th>
-                    {headerGroup.headers.map((header) => {
-                      const meta = getMeta(header.column.columnDef).column;
-                      const sorted = header.column.getIsSorted();
-                      const label = flexRender(header.column.columnDef.header, header.getContext());
-                      if (!header.column.getCanSort()) {
+                    {headerGroup.headers
+                      .filter((header) => fitted.has(header.column.id))
+                      .map((header) => {
+                        const meta = getMeta(header.column.columnDef).column;
+                        const sorted = header.column.getIsSorted();
+                        const label = flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        );
+                        // The funnel of the column's filter, beside its label: it opens
+                        // the filter's popover, and a click on it does not sort.
+                        const filter =
+                          filterable && isFilterable(meta) ? (
+                            <ColumnFilterPopover
+                              column={meta}
+                              filters={search.filters}
+                              onChange={(expr) => {
+                                setFilter(meta.prop, expr);
+                              }}
+                              valueStats={valueStats}
+                              scope={[pathname]}
+                            />
+                          ) : null;
+                        if (!header.column.getCanSort()) {
+                          return (
+                            <th
+                              key={header.id}
+                              scope="col"
+                              className={`px-2 py-1.5 font-medium ${meta.numeric === true ? "text-right" : ""}`}
+                            >
+                              <span
+                                className={`flex items-center gap-1 ${meta.numeric === true ? "justify-end" : ""}`}
+                              >
+                                {label}
+                                {filter}
+                              </span>
+                            </th>
+                          );
+                        }
                         return (
                           <th
                             key={header.id}
                             scope="col"
-                            className={`px-2 py-1.5 font-medium ${meta.numeric === true ? "text-right" : ""}`}
+                            aria-sort={
+                              sorted === false
+                                ? "none"
+                                : sorted === "asc"
+                                  ? "ascending"
+                                  : "descending"
+                            }
+                            className={meta.numeric === true ? "text-right" : undefined}
                           >
-                            {label}
+                            <span
+                              className={`flex items-center gap-0.5 pr-1 ${meta.numeric === true ? "justify-end" : ""}`}
+                            >
+                              <button
+                                type="button"
+                                onClick={header.column.getToggleSortingHandler()}
+                                className={`py-1.5 pl-2 font-medium hover:text-ink ${filter === null ? "w-full pr-2 text-left" : "text-left"}`}
+                              >
+                                {label}
+                                {sorted !== false && (
+                                  <span aria-hidden="true">
+                                    {sorted === "asc" ? " ▲" : " ▼"}
+                                    {sorting.length > 1 && header.column.getSortIndex() + 1}
+                                  </span>
+                                )}
+                              </button>
+                              {filter}
+                            </span>
                           </th>
                         );
-                      }
-                      return (
-                        <th
-                          key={header.id}
-                          scope="col"
-                          aria-sort={
-                            sorted === false
-                              ? "none"
-                              : sorted === "asc"
-                                ? "ascending"
-                                : "descending"
-                          }
-                          className={meta.numeric === true ? "text-right" : undefined}
-                        >
-                          <button
-                            type="button"
-                            onClick={header.column.getToggleSortingHandler()}
-                            className="w-full px-2 py-1.5 text-left font-medium hover:text-ink"
-                          >
-                            {label}
-                            {sorted !== false && (
-                              <span aria-hidden="true">
-                                {sorted === "asc" ? " ▲" : " ▼"}
-                                {sorting.length > 1 && header.column.getSortIndex() + 1}
-                              </span>
-                            )}
-                          </button>
-                        </th>
-                      );
-                    })}
+                      })}
                   </tr>
                 ))}
-                {filterable && (
-                  <tr className="border-b border-line text-left">
-                    <td className="w-8 px-2">
-                      <span className="sr-only">{t("list.filters.title")}</span>
-                    </td>
-                    {table.getVisibleLeafColumns().map((column) => {
-                      const meta = getMeta(column.columnDef).column;
-                      return (
-                        // The same padding above and below: the control sits in the
-                        // middle of its row, clear of the line under the headers.
-                        <td key={column.id} className="px-2 py-1">
-                          <div className="flex items-center gap-1">
-                            <div className="min-w-0 flex-1">
-                              <ColumnFilterControl
-                                column={meta}
-                                value={search.filters[meta.prop]}
-                                onChange={(expr) => {
-                                  setFilter(meta.prop, expr);
-                                }}
-                              />
-                            </div>
-                            {valueStats !== undefined && hasDistribution(meta) && (
-                              <ColumnValues
-                                column={meta}
-                                filters={search.filters}
-                                scope={[pathname, search.fset]}
-                                valueStats={valueStats}
-                                onChange={(expr) => {
-                                  setFilter(meta.prop, expr);
-                                }}
-                              />
-                            )}
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                )}
               </thead>
               <tbody>
                 {rows.length === 0 && errorMessage === null && (
                   <tr>
-                    <td colSpan={shown.length + 1} className="px-2 py-3 text-ink-muted">
+                    <td colSpan={fitted.size + 1} className="px-2 py-3 text-ink-muted">
                       {activeFilters.length > 0 ? t("list.filters.noMatch") : t("list.empty")}
                     </td>
                   </tr>
@@ -1022,6 +1228,10 @@ export function CollectorList<T>({
                 {table.getRowModel().rows.map((row) => {
                   const id = rowId(row.original);
                   const selected = id !== undefined && id === search.sel;
+                  const openRow = () => {
+                    if (onRowOpen === undefined) onChange({ sel: id });
+                    else onRowOpen(row.original);
+                  };
                   return (
                     <tr
                       key={row.id}
@@ -1029,15 +1239,18 @@ export function CollectorList<T>({
                       // a cell may hold its own buttons, and a button inside a button
                       // would be neither valid nor usable from the keyboard.
                       tabIndex={0}
-                      aria-haspopup="dialog"
-                      onClick={() => {
-                        onChange({ sel: id });
+                      aria-haspopup={onRowOpen === undefined ? "dialog" : undefined}
+                      onClick={(event) => {
+                        // A link in a cell keeps its own destination.
+                        if (event.target instanceof Element && event.target.closest("a") !== null)
+                          return;
+                        openRow();
                       }}
                       onKeyDown={(event) => {
                         if (event.target !== event.currentTarget) return;
                         if (event.key !== "Enter" && event.key !== " ") return;
                         event.preventDefault();
-                        onChange({ sel: id });
+                        openRow();
                       }}
                       aria-current={selected ? "true" : undefined}
                       className={`h-(--row-height) cursor-pointer border-b border-line last:border-b-0 hover:bg-surface-sunken focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus-ring) ${
@@ -1066,35 +1279,45 @@ export function CollectorList<T>({
                           }}
                         />
                       </td>
-                      {row.getVisibleCells().map((cell, index) => {
-                        const meta = getMeta(cell.column.columnDef).column;
-                        const content = flexRender(cell.column.columnDef.cell, cell.getContext());
-                        // The raw value stands for the cell: a live update changing it
-                        // flashes the cell, and a row it brings flashes whole.
-                        const signature = signatureOf(cell.getValue());
-                        return index === 0 ? (
-                          <FlashCell
-                            key={cell.id}
-                            header
-                            signature={signature}
-                            appear={shownOnce.current}
-                            className="px-2 text-left font-medium"
-                          >
-                            <span className="inline-flex items-center gap-1.5">
-                              {rowLead?.(row.original)}
+                      {row
+                        .getVisibleCells()
+                        .filter((cell) => fitted.has(cell.column.id))
+                        .map((cell, index) => {
+                          const meta = getMeta(cell.column.columnDef).column;
+                          const content = flexRender(cell.column.columnDef.cell, cell.getContext());
+                          // The raw value stands for the cell: a live update changing it
+                          // flashes the cell, and a row it brings flashes whole.
+                          const signature = signatureOf(cell.getValue());
+                          return index === 0 ? (
+                            <FlashCell
+                              key={cell.id}
+                              header
+                              signature={signature}
+                              appear={shownOnce.current}
+                              className="px-2 text-left font-medium"
+                            >
+                              <span className="inline-flex items-center gap-1.5">
+                                {/* A slot as wide as the mark on every row, filled or
+                                  not: the content of a frozen row lines up with
+                                  the others instead of moving by the mark. */}
+                                {rowLead !== undefined && (
+                                  <span className="inline-flex w-3.5 shrink-0 justify-center">
+                                    {rowLead(row.original)}
+                                  </span>
+                                )}
+                                {content}
+                              </span>
+                            </FlashCell>
+                          ) : (
+                            <FlashCell
+                              key={cell.id}
+                              signature={signature}
+                              className={meta.numeric === true ? "px-2 text-right" : "px-2"}
+                            >
                               {content}
-                            </span>
-                          </FlashCell>
-                        ) : (
-                          <FlashCell
-                            key={cell.id}
-                            signature={signature}
-                            className={meta.numeric === true ? "px-2 text-right" : "px-2"}
-                          >
-                            {content}
-                          </FlashCell>
-                        );
-                      })}
+                            </FlashCell>
+                          );
+                        })}
                     </tr>
                   );
                 })}
@@ -1115,128 +1338,4 @@ function signatureOf(value: unknown): string {
 /** Reads the metadata of a column, which TanStack types as `unknown`. */
 function getMeta<T>(columnDef: ColumnDef<T>): ColumnMeta<T> {
   return columnDef.meta as ColumnMeta<T>;
-}
-
-/** Filter control of a column, according to what the column declares. */
-function ColumnFilterControl<T>({
-  column,
-  value,
-  onChange,
-}: {
-  column: ListColumn<T>;
-  value: string | undefined;
-  onChange: (expr: string | undefined) => void;
-}) {
-  const { t } = useTranslation();
-  const label = t("list.filters.label", { column: t(column.labelKey) });
-  const spec = column.filter ?? { kind: "text" };
-  if (spec.kind === "none") return null;
-  if (spec.kind === "enum")
-    return (
-      <EnumFilter
-        value={value}
-        onChange={onChange}
-        options={spec.options.map((option) => ({
-          value: option.value,
-          label: optionLabel(option, t),
-          render: option.render,
-        }))}
-        label={label}
-        allLabel={t("list.filters.all")}
-        invertLabel={t("list.filters.invertEnum")}
-        exceptLabel={(values) => t("list.filters.except", { values })}
-      />
-    );
-  return (
-    <TextFilter
-      value={value}
-      onChange={onChange}
-      label={label}
-      regexLabel={t("list.filters.regex")}
-      invertLabel={t("list.filters.invert")}
-      clearLabel={t("list.filters.clearOne", { column: t(column.labelKey) })}
-      invalidLabel={(reason) => t("list.filters.invalidRegex", { reason })}
-      placeholder={column.numeric === true ? t("list.filters.numberHint") : undefined}
-    />
-  );
-}
-
-/** Whether a column offers the distribution of its values: see ListColumn. */
-function hasDistribution<T>(column: ListColumn<T>): boolean {
-  if (column.filter?.kind === "none") return false;
-  return column.distribution ?? column.family !== "time";
-}
-
-/**
- * The distribution of a column's values under every filter but its own, read with
- * the view's `valueStats`; the values are named as the enumerated filter names them.
- */
-function ColumnValues<T>({
-  column,
-  filters,
-  scope,
-  valueStats,
-  onChange,
-}: {
-  column: ListColumn<T>;
-  filters: ColumnFilters;
-  /** What tells the lists apart in the cache: the page and its filterset. */
-  scope: readonly unknown[];
-  valueStats: (prop: string, filters: ColumnFilters) => Promise<ValueStats>;
-  onChange: (expr: string | undefined) => void;
-}) {
-  const { t } = useTranslation();
-  const others = Object.fromEntries(
-    Object.entries(filters).filter(([prop]) => prop !== column.prop),
-  );
-  const options = column.filter?.kind === "enum" ? column.filter.options : [];
-  return (
-    <ColumnDistribution
-      column={t(column.labelKey)}
-      expr={filters[column.prop]}
-      onChange={onChange}
-      queryKey={["valueStats", ...scope, column.prop, filtersKey(others)]}
-      fetchStats={(narrow) =>
-        valueStats(
-          column.prop,
-          narrow === undefined ? others : { ...others, [column.prop]: narrow },
-        )
-      }
-      labelOf={(value) => {
-        const option = options.find((candidate) => candidate.value === value);
-        return option === undefined
-          ? { text: value }
-          : { text: optionLabel(option, t), render: option.render };
-      }}
-    />
-  );
-}
-
-function optionLabel(option: ColumnFilterOption, t: TFunction): string {
-  return option.labelKey === undefined ? option.value : t(option.labelKey);
-}
-
-/**
- * A filter as the bar of active filters shows it: as it was typed or chosen. The
- * inversion is not part of it: the bar says it in words before the value.
- */
-function describeFilter<T>(column: ListColumn<T> | undefined, expr: string, t: TFunction): string {
-  if (column === undefined) return expr;
-  const spec = column.filter;
-  const draft = toTextDraft(expr);
-  // Values picked from a list, or from the distribution of a text column: named.
-  // A single exact value of a text column keeps its "=", which tells it from a
-  // substring.
-  if (spec?.kind === "enum" || draft.text.startsWith("in:")) {
-    const options = spec?.kind === "enum" ? spec.options : [];
-    const values = toEnumValues(expr);
-    if (values.length > 0)
-      return values
-        .map((value) => {
-          const option = options.find((candidate) => candidate.value === value);
-          return option === undefined ? value : optionLabel(option, t);
-        })
-        .join(", ");
-  }
-  return draft.regex ? `/${draft.text}/` : draft.text;
 }

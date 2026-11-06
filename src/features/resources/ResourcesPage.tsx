@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import type { components } from "@/lib/api/schema";
+import type { FiltersetSource } from "@/lib/filterset-entries";
 import { api } from "@/lib/api/client";
 import { toPage } from "@/lib/api/page";
 import { problemText } from "@/lib/api/problem";
@@ -21,8 +23,10 @@ import {
   visibleProps,
   type ResolvedListSearch,
 } from "@/lib/list-search";
-import { filterQuery, filtersKey } from "@/lib/column-filters";
+import { filterQuery, filtersKey, type ColumnFilters } from "@/lib/column-filters";
+import { STATS_LIMIT, toValueStats, type ValueStats } from "@/lib/api/value-stats";
 import { useViewPrefs, withSavedSearch } from "@/lib/user-prefs";
+import { ResourceActionsMenu } from "./ResourceActionsMenu";
 import { ResourceDetailPanel } from "./ResourceDetailPanel";
 import { resourceFlag, resourceName } from "./resource-format";
 
@@ -51,6 +55,10 @@ const RESOURCE_PROPS = [
   "updated",
 ] as const satisfies readonly (keyof ResourceRow)[];
 
+/**
+ * Columns shown by default, those of the historical collector's resources table
+ * (`default_columns` of `table_resources`), in the order of RESOURCE_PROPS.
+ */
 const DEFAULT_COLS: string[] = [
   "services.svcname",
   "nodes.nodename",
@@ -59,6 +67,7 @@ const DEFAULT_COLS: string[] = [
   "res_type",
   "res_status",
   "res_desc",
+  "res_log",
   "res_monitor",
   "res_disable",
   "res_optional",
@@ -119,7 +128,7 @@ const COLUMNS: ListColumn<ResourceRow>[] = RESOURCE_PROPS.map((prop) => ({
     if (prop === "updated" && typeof value === "string" && value !== "")
       return <RelativeTime value={value} locale={locale} />;
     if (prop === "changed" && typeof value === "string" && value !== "")
-      return <DateTime value={value} locale={locale} />;
+      return <DateTime value={value} />;
     return value;
   },
 }));
@@ -136,11 +145,20 @@ function FlagWord({ value }: { value: unknown }) {
 
 const ALL_PROPS = COLUMNS.map((column) => column.prop);
 
-/** Columns shown, plus the ids the detail and the links need. */
+/** What the actions on a resource need: its instance, its container and its id. */
+const ACTION_PROPS = [
+  "id",
+  "svc_id",
+  "node_id",
+  "vmname",
+  "rid",
+  "services.svcname",
+  "nodes.nodename",
+];
+
+/** Columns shown, plus the ids the detail, the links and the actions need. */
 function queryProps(cols: string[] | undefined): string {
-  return [
-    ...new Set(["id", "svc_id", "node_id", ...visibleProps(cols, DEFAULT_COLS, ALL_PROPS)]),
-  ].join(",");
+  return [...new Set([...ACTION_PROPS, ...visibleProps(cols, DEFAULT_COLS, ALL_PROPS)])].join(",");
 }
 
 /**
@@ -165,6 +183,17 @@ async function fetchResources(search: ResolvedListSearch) {
   return toPage(all, data.meta, search.limit);
 }
 
+/**
+ * The distribution of a column's values over the selection: the filters given
+ * apply, not the pagination. Joined columns too: `services.svcname`, `nodes.nodename`.
+ */
+async function resourceStats(prop: string, filters: ColumnFilters): Promise<ValueStats> {
+  const query = { props: prop, stats: "1", limit: STATS_LIMIT, filter: filterQuery(filters) };
+  const response = await api.GET("/resources", { params: { query } });
+  if (response.error !== undefined) throw new Error(problemText(response.error));
+  return toValueStats(response.data.data, response.data.meta, prop);
+}
+
 function useResources(search: ResolvedListSearch) {
   return useQuery({
     queryKey: [
@@ -183,10 +212,16 @@ function useResources(search: ResolvedListSearch) {
 }
 
 /**
+ * Filters saved as a filterset (SaveAsFilterset). Resources are rows of resmon.
+ */
+const FILTERSET_SOURCE: FiltersetSource = { table: "resmon", selects: "related" };
+
+/**
  * The resources of the service instances, as the agents report them: the
  * historical `view-resources` (`resmon`). A Manager sees them all, the others
- * those of the services of an app their teams are responsible for. Read-only: a
- * resource is described by its agent.
+ * those of the services of an app their teams are responsible for. A resource is
+ * described by its agent; the checked ones can be started, stopped, restarted,
+ * enabled or disabled through it.
  */
 export function ResourcesPage() {
   const { t } = useTranslation();
@@ -198,13 +233,21 @@ export function ResourcesPage() {
   const navigate = useNavigate({ from: "/resources" });
   const { data, isPending, isError, error, isFetching } = useResources(search);
 
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  // The rows of a selection extended past the page on display: the actions need
+  // their instance and their rid, which the page does not hold.
+  const [beyondPage, setBeyondPage] = useState<ResourceRow[]>([]);
+
   /** Ids of the whole selection, filters included, without pagination. */
   async function allIds(): Promise<string[]> {
     const { data, error } = await api.GET("/resources", {
-      params: { query: { props: "id", limit: 0, filter: filterQuery(search.filters) } },
+      params: {
+        query: { props: ACTION_PROPS.join(","), limit: 0, filter: filterQuery(search.filters) },
+      },
     });
     if (error !== undefined) throw new Error(problemText(error));
     const rows: ResourceRow[] = Array.isArray(data.data) ? data.data : [];
+    setBeyondPage(rows);
     return rows.flatMap((row) => (row.id === undefined ? [] : [String(row.id)]));
   }
 
@@ -219,25 +262,35 @@ export function ResourcesPage() {
   }
 
   const selected = data?.rows.find((row) => String(row.id) === search.sel);
+  const rowsById = new Map(
+    [...beyondPage, ...(data?.rows ?? [])].map((row) => [String(row.id), row] as const),
+  );
+  const selectedRows = selectedIds.flatMap((id) => {
+    const row = rowsById.get(id);
+    return row === undefined ? [] : [row];
+  });
 
   return (
     <section>
-      <h1 className="mb-3 flex items-center gap-2 text-title font-semibold">
-        <ObjectIcon kind="resource" className="h-5 w-5" />
-        {t("resources.title")}
-      </h1>
+      {/* As tall as the Actions button from the start: checking a row must not push the list down. */}
+      <div className="mb-3 flex min-h-7 items-center gap-3">
+        <h1 className="flex items-center gap-2 text-title font-semibold">
+          <ObjectIcon kind="resource" className="h-5 w-5" />
+          {t("resources.title")}
+        </h1>
+        {/* On the rows checked in the list; nothing checked, no menu. */}
+        <ResourceActionsMenu resources={selectedRows} />
+      </div>
       <p className="mb-3 max-w-3xl text-ink-muted">{t("resources.intro")}</p>
 
       <CollectorList
+        viewPrefs={prefs}
         columns={COLUMNS}
         defaultCols={DEFAULT_COLS}
         rows={data?.rows ?? []}
         rowId={(row) => (row.id === undefined ? undefined : String(row.id))}
         search={search}
         onChange={update}
-        // apicollector has no resources endpoint filtered by filterset; the session
-        // filter narrows the list.
-        filtersets={[]}
         isPending={isPending}
         isFetching={isFetching}
         errorMessage={isError ? error.message : null}
@@ -245,7 +298,10 @@ export function ResourcesPage() {
         exportPage={(page) => fetchResources({ ...search, ...page })}
         total={data?.total}
         selectAllMatching={allIds}
+        onSelectionChange={setSelectedIds}
+        valueStats={resourceStats}
         filterable
+        filtersetSource={FILTERSET_SOURCE}
       />
 
       <ResourceDetailPanel

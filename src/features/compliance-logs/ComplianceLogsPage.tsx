@@ -5,15 +5,14 @@ import type { components } from "@/lib/api/schema";
 import { api } from "@/lib/api/client";
 import { toPage } from "@/lib/api/page";
 import { problemText } from "@/lib/api/problem";
-import { useFiltersets } from "@/lib/api/filtersets";
 import {
   CollectorList,
   type ColumnFilterOption,
   type ListColumn,
 } from "@/components/opensvc/CollectorList";
+import { RUN_STATUS_OPTIONS, RunLog, RunStatus } from "@/components/opensvc/ComplianceRun";
 import { CrossLink } from "@/components/opensvc/CrossLink";
 import { ObjectIcon } from "@/components/opensvc/ObjectIcon";
-import { StatusBadge, type ObjectState } from "@/components/opensvc/StatusBadge";
 import type { ColumnFamily } from "@/components/opensvc/ColumnFamily";
 import { DateTime } from "@/components/ui/DateTime";
 import {
@@ -23,8 +22,10 @@ import {
   visibleProps,
   type ResolvedListSearch,
 } from "@/lib/list-search";
-import { filterQuery, filtersKey } from "@/lib/column-filters";
+import { filterQuery, filtersKey, type ColumnFilters } from "@/lib/column-filters";
+import { STATS_LIMIT, toValueStats, type ValueStats } from "@/lib/api/value-stats";
 import { useViewPrefs, withSavedSearch } from "@/lib/user-prefs";
+import { ComplianceRunDetailPanel } from "@/components/opensvc/ComplianceRunDetailPanel";
 
 type ComplianceLogRow = components["schemas"]["ComplianceLogRow"];
 
@@ -75,21 +76,6 @@ const FAMILY: Record<LogProp, ColumnFamily> = {
   rset_md5: "ruleset",
 };
 
-/**
- * Exit codes of a module run, as the historical cells tell them: 0 ok, 1 not ok,
- * 2 not applicable, -15 killed; any other code is shown as is.
- */
-const RUN_STATUSES: Record<string, { state: ObjectState; labelKey: string }> = {
-  "0": { state: "up", labelKey: "complianceLogs.status.ok" },
-  "1": { state: "down", labelKey: "complianceLogs.status.nok" },
-  "2": { state: "unknown", labelKey: "complianceLogs.status.na" },
-  "-15": { state: "warn", labelKey: "complianceLogs.status.killed" },
-};
-
-const STATUS_OPTIONS: ColumnFilterOption[] = Object.entries(RUN_STATUSES).map(
-  ([value, { labelKey }]) => ({ value, labelKey }),
-);
-
 /** The actions a module runs; the values are their own labels, as in the cells. */
 const ACTION_OPTIONS: ColumnFilterOption[] = [
   { value: "check" },
@@ -97,37 +83,10 @@ const ACTION_OPTIONS: ColumnFilterOption[] = [
   { value: "fix" },
 ];
 
-function RunStatus({ value }: { value: number | undefined }) {
-  const { t } = useTranslation();
-  if (value === undefined) return null;
-  const known = RUN_STATUSES[String(value)];
-  return known === undefined ? (
-    <StatusBadge state="unknown" label={String(value)} />
-  ) : (
-    <StatusBadge state={known.state} label={t(known.labelKey)} />
-  );
-}
-
-/** The output of a run, preformatted, its "ERR:" marks in the error tint. */
-function RunLog({ value }: { value: string | undefined }) {
-  if (value === undefined || value === "") return null;
-  const parts = value.split("ERR:");
-  return (
-    <pre className="m-0 font-mono wrap-anywhere whitespace-pre-wrap">
-      {parts.map((part, i) => (
-        <span key={i}>
-          {i > 0 && <span className="font-semibold text-state-down">ERR:</span>}
-          {part}
-        </span>
-      ))}
-    </pre>
-  );
-}
-
-function renderCell(prop: LogProp, row: ComplianceLogRow, locale: string) {
+function renderCell(prop: LogProp, row: ComplianceLogRow) {
   switch (prop) {
     case "run_date":
-      return <DateTime value={row.run_date} locale={locale} />;
+      return <DateTime value={row.run_date} />;
     case "nodes.nodename":
       return row["nodes.nodename"] === null || row["nodes.nodename"] === undefined ? null : (
         <CrossLink kind="node" id={row.node_id}>
@@ -160,11 +119,11 @@ const COLUMNS: ListColumn<ComplianceLogRow>[] = LOG_PROPS.map((prop) => ({
   sortable: !prop.includes("."),
   filter:
     prop === "run_status"
-      ? { kind: "enum" as const, options: STATUS_OPTIONS }
+      ? { kind: "enum" as const, options: RUN_STATUS_OPTIONS }
       : prop === "run_action"
         ? { kind: "enum" as const, options: ACTION_OPTIONS }
         : undefined,
-  render: (row, locale) => renderCell(prop, row, locale),
+  render: (row) => renderCell(prop, row),
 }));
 
 const ALL_PROPS: string[] = [...LOG_PROPS];
@@ -177,6 +136,17 @@ function queryProps(cols: string[] | undefined): string {
     ...(shown.includes("services.svcname") ? ["svc_id"] : []),
   ];
   return [...new Set(["id", ...shown, ...extra])].join(",");
+}
+
+/**
+ * The distribution of a column's values over the selection: the filters given
+ * apply, not the pagination.
+ */
+async function complianceLogStats(prop: string, filters: ColumnFilters): Promise<ValueStats> {
+  const query = { props: prop, stats: "1", limit: STATS_LIMIT, filter: filterQuery(filters) };
+  const response = await api.GET("/compliance/logs", { params: { query } });
+  if (response.error !== undefined) throw new Error(problemText(response.error));
+  return toValueStats(response.data.data, response.data.meta, prop);
 }
 
 /**
@@ -193,7 +163,6 @@ async function fetchComplianceLogs(search: ResolvedListSearch) {
         offset: search.offset,
         limit: search.limit + 1,
         filter: filterQuery(search.filters),
-        ...(search.fset === "" ? {} : { fset_id: search.fset }),
       },
     },
   });
@@ -210,7 +179,6 @@ function useComplianceLogs(search: ResolvedListSearch) {
       search.sort,
       search.offset,
       search.limit,
-      search.fset,
       search.cols,
       filtersKey(search.filters),
     ],
@@ -224,7 +192,8 @@ function useComplianceLogs(search: ResolvedListSearch) {
 /**
  * The runs of the compliance modules (check, fixable, fix) on the nodes the user
  * can see, the most recent first, as the collector's compliance log. The filterset
- * selects the runs by their node. Read-only.
+ * selects the runs by their node. Read-only; a row opens the run in a panel, its
+ * output in full.
  */
 export function ComplianceLogsPage() {
   const { t } = useTranslation();
@@ -235,9 +204,8 @@ export function ComplianceLogsPage() {
   );
   const navigate = useNavigate({ from: "/compliance/logs" });
   const { data, isPending, isError, error, isFetching } = useComplianceLogs(search);
-  const filtersets = useFiltersets();
 
-  /** Ids of the whole selection, filters and filterset included, without pagination. */
+  /** Ids of the whole selection, filters included, without pagination. */
   async function allIds(): Promise<string[]> {
     const { data, error } = await api.GET("/compliance/logs", {
       params: {
@@ -245,7 +213,6 @@ export function ComplianceLogsPage() {
           props: "id",
           limit: 0,
           filter: filterQuery(search.filters),
-          ...(search.fset === "" ? {} : { fset_id: search.fset }),
         },
       },
     });
@@ -264,6 +231,8 @@ export function ComplianceLogsPage() {
     });
   }
 
+  const selected = data?.rows.find((row) => String(row.id) === search.sel);
+
   return (
     <section>
       <h1 className="mb-3 flex items-center gap-2 text-title font-semibold">
@@ -272,13 +241,13 @@ export function ComplianceLogsPage() {
       </h1>
 
       <CollectorList
+        viewPrefs={prefs}
         columns={COLUMNS}
         defaultCols={DEFAULT_COLS}
         rows={data?.rows ?? []}
         rowId={(row) => (row.id === undefined ? undefined : String(row.id))}
         search={search}
         onChange={update}
-        filtersets={filtersets.data ?? []}
         isPending={isPending}
         isFetching={isFetching}
         errorMessage={isError ? error.message : null}
@@ -286,7 +255,21 @@ export function ComplianceLogsPage() {
         exportPage={(page) => fetchComplianceLogs({ ...search, ...page })}
         total={data?.total}
         selectAllMatching={allIds}
+        valueStats={complianceLogStats}
         filterable
+      />
+
+      <ComplianceRunDetailPanel
+        source="log"
+        runId={search.sel}
+        label={
+          selected === undefined
+            ? ""
+            : `${selected.run_module ?? ""} · ${selected.run_action ?? ""}`
+        }
+        onClose={() => {
+          update({ sel: undefined });
+        }}
       />
     </section>
   );

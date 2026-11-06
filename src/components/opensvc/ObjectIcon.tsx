@@ -1,11 +1,14 @@
 import {
   AlertTriangleIcon,
+  DashboardIcon,
   AsteriskIcon,
+  CheckIcon,
   CodeIcon,
   PieChartIcon,
   LineChartIcon,
   CpuIcon,
   CubeIcon,
+  ArchiveIcon,
   DatabaseIcon,
   FilterIcon,
   GearIcon,
@@ -14,6 +17,8 @@ import {
   LifeRingIcon,
   NetworkIcon,
   PuzzleIcon,
+  SparklesIcon,
+  LockIcon,
   ServerIcon,
   StackIcon,
   SwitchIcon,
@@ -21,30 +26,41 @@ import {
   TagsIcon,
   UserIcon,
   UsersIcon,
-  ClusterIcon,
+  HoneycombIcon,
   HashIcon,
+  KeyIcon,
+  FirewallIcon,
+  LinkIcon,
+  ListChecksIcon,
+  TerminalIcon,
 } from "@/components/ui/icons";
 
 /** Collector object kinds that have a visual identity of their own. */
 export type ObjectKind =
   | "dashboard"
+  | "dashboardView"
   | "node"
   | "cluster"
   | "service"
   | "instance"
   | "resource"
+  | "action"
   | "network"
   | "disk"
+  | "save"
   | "app"
   | "tag"
   | "tags"
   | "group"
+  | "privilege"
   | "user"
   | "obsolescence"
   | "log"
   | "filter"
   | "filterset"
   | "form"
+  | "safe"
+  | "ai"
   | "package"
   | "hardware"
   | "switch"
@@ -52,9 +68,17 @@ export type ObjectKind =
   | "report"
   | "chart"
   | "moduleset"
+  | "compModule"
   | "ruleset"
+  | "complianceStatus"
+  | "check"
   | "complianceLog"
-  | "designer";
+  | "designer"
+  | "claimMapping"
+  | "fieldConstraint"
+  | "compAttachment"
+  | "formConnector"
+  | "orchestration";
 
 /**
  * Pictogram and tint of an object kind. The same vocabulary in the menu, in panel
@@ -65,21 +89,31 @@ export type ObjectKind =
  */
 const KINDS: Record<ObjectKind, { Icon: typeof ServerIcon; className: string }> = {
   dashboard: { Icon: AlertTriangleIcon, className: "text-icon-dashboard" },
+  // The Dashboard view itself, in the menu and its page: the tiles of a dashboard.
+  // Its alerts keep the triangle ("dashboard"), which also keys their bookmarks.
+  dashboardView: { Icon: DashboardIcon, className: "text-icon-dashboard" },
   node: { Icon: ServerIcon, className: "text-icon-node" },
   // The tint of the nodes it groups, as the cluster column family.
-  cluster: { Icon: ClusterIcon, className: "text-icon-node" },
+  cluster: { Icon: HoneycombIcon, className: "text-icon-node" },
   service: { Icon: StackIcon, className: "text-icon-service" },
   // Service tint: an instance is a service seen from a node.
   instance: { Icon: InstanceIcon, className: "text-icon-service" },
   // The sea green hashtag of the historical `resource` class, a part of a service.
   resource: { Icon: HashIcon, className: "text-icon-service" },
+  // The gear of the historical `action16` class, in the green of the services.
+  action: { Icon: GearIcon, className: "text-icon-service" },
+  // An orchestration: steps of agent actions, one after the other.
+  orchestration: { Icon: ListChecksIcon, className: "text-icon-service" },
   network: { Icon: NetworkIcon, className: "text-icon-network" },
   disk: { Icon: DatabaseIcon, className: "text-icon-disk" },
+  save: { Icon: ArchiveIcon, className: "text-icon-disk" },
   app: { Icon: AsteriskIcon, className: "text-icon-app" },
   // The collector's dark cyan label (`tag16`); the Tags menu entry and view show a pair.
   tag: { Icon: TagIcon, className: "text-icon-tag" },
   tags: { Icon: TagsIcon, className: "text-icon-tag" },
   group: { Icon: UsersIcon, className: "text-icon-group" },
+  // A privilege group, told from an organizational one where both are listed.
+  privilege: { Icon: FirewallIcon, className: "text-icon-group" },
   // Same tint as groups: the historical collector paints `guy16` and `guys16` in the
   // same salmon, both speak of people.
   user: { Icon: UserIcon, className: "text-icon-group" },
@@ -97,6 +131,10 @@ const KINDS: Record<ObjectKind, { Icon: typeof ServerIcon; className: string }> 
   // Same icon as the filter: the historical collector marks both of them `filter16`.
   filterset: { Icon: FilterIcon, className: "text-icon-dashboard" },
   form: { Icon: PuzzleIcon, className: "text-icon-form" },
+  // The padlock of the historical safe16 class, in the colour of the forms it shares.
+  safe: { Icon: LockIcon, className: "text-icon-form" },
+  // The assistant takes the accent: it belongs to no object family.
+  ai: { Icon: SparklesIcon, className: "text-accent" },
   package: { Icon: CubeIcon, className: "text-icon-package" },
   // Cornflower blue in the historical collector (`hw16`): the tint of nodes.
   hardware: { Icon: CpuIcon, className: "text-icon-node" },
@@ -105,12 +143,27 @@ const KINDS: Record<ObjectKind, { Icon: typeof ServerIcon; className: string }> 
   switch: { Icon: SwitchIcon, className: "text-icon-network" },
   // The cogs of the historical collector (`modset16`), in its compliance crimson.
   moduleset: { Icon: GearIcon, className: "text-icon-compliance" },
+  // A terminal in the compliance crimson: the scripts the modulesets name.
+  compModule: { Icon: TerminalIcon, className: "text-icon-compliance" },
   // The cube of the historical collector (`rset16`), in its compliance crimson.
   ruleset: { Icon: CubeIcon, className: "text-icon-compliance" },
+  // The check mark of the historical compliance status (`compstatus`), in its crimson.
+  complianceStatus: { Icon: CheckIcon, className: "text-icon-compliance" },
+  // The green check mark of the historical checks (`check16`), in the green of the
+  // services, the compliance status keeping the crimson one.
+  check: { Icon: CheckIcon, className: "text-icon-service" },
   // The history clock of the historical compliance log (`complog`), in its crimson.
   complianceLog: { Icon: HistoryIcon, className: "text-icon-compliance" },
   // The puzzle piece of the historical designer (`designer16`), in the compliance crimson.
   designer: { Icon: PuzzleIcon, className: "text-icon-compliance" },
+  // A key in the tint of users and teams: who gets in, and with which teams.
+  claimMapping: { Icon: KeyIcon, className: "text-icon-group" },
+  // The values allowed for node attributes: the tint of the nodes they constrain.
+  fieldConstraint: { Icon: ListChecksIcon, className: "text-icon-node" },
+  // A link in the tint of compliance: modulesets and rulesets tied to their targets.
+  compAttachment: { Icon: LinkIcon, className: "text-icon-compliance" },
+  // A link in the tint of the forms: the external APIs they call.
+  formConnector: { Icon: LinkIcon, className: "text-icon-form" },
 };
 
 export function ObjectIcon({ kind, className }: { kind: ObjectKind; className?: string }) {

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { formatDuration } from "@/lib/format";
+import { dateTimeFormat } from "@/lib/date-format";
 
 /** The colour of a range: a state, read with its label rather than alone. */
 export type TimelineTone = "up" | "down" | "warn" | "unknown";
@@ -87,6 +88,7 @@ export function Timeline({
   tableOpen,
   onSelect,
   selected,
+  legendOrder,
 }: {
   tracks: TimelineTrack[];
   now: number;
@@ -104,6 +106,11 @@ export function Timeline({
   onSelect?: (range: TimelineRange, track: TimelineTrack) => void;
   /** Key of the selected period, as `${track.key}/${range.key}`. */
   selected?: string;
+  /**
+   * Labels in the order the legend lists them, whatever ranges come first; the
+   * labels not named follow, in their order of appearance.
+   */
+  legendOrder?: readonly string[];
 }) {
   const box = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(600);
@@ -130,9 +137,8 @@ export function Timeline({
   const x = (t: number) => left + ((Math.max(t, first) - first) / span) * inner;
   const y = (track: number) => PAD.top + track * (TRACK_HEIGHT + TRACK_GAP);
   const height = y(tracks.length) - TRACK_GAP + AXIS;
-  const dateTime = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "medium" });
-  const axisFormat = new Intl.DateTimeFormat(
-    locale,
+  const dateTime = dateTimeFormat({ dateStyle: "medium", timeStyle: "medium" });
+  const axisFormat = dateTimeFormat(
     span <= 2 * 86400 ? { hour: "2-digit", minute: "2-digit" } : { month: "short", day: "numeric" },
   );
   const tickCount = Math.max(2, Math.min(6, Math.floor(inner / 110)));
@@ -140,11 +146,15 @@ export function Timeline({
   const shown = active === null ? undefined : tracks[active.track]?.ranges[active.range];
   const endText = (r: TimelineRange) =>
     r.ongoing === true ? labels.ongoing : dateTime.format(new Date(r.end * 1000));
+  const rank = (label: string | undefined) => {
+    const index = legendOrder?.indexOf(label ?? "") ?? -1;
+    return index === -1 ? Infinity : index;
+  };
   const legend = [
     ...new Map(
       all.filter((r) => r.label !== undefined).map((r) => [r.label, r.tone ?? "down"] as const),
     ),
-  ];
+  ].sort(([a], [b]) => rank(a) - rank(b));
   const withLabels = legend.length > 0;
 
   function geometry(r: TimelineRange) {

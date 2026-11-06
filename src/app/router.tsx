@@ -1,24 +1,43 @@
 import { createRootRoute, createRoute, createRouter, redirect } from "@tanstack/react-router";
 import { AppShell } from "./layout/AppShell";
+import { AboutPage } from "@/features/about/AboutPage";
 import { AppsPage } from "@/features/apps/AppsPage";
 import { ComplianceLogsPage } from "@/features/compliance-logs/ComplianceLogsPage";
+import { ComplianceAttachmentsPage } from "@/features/compliance-attachments/ComplianceAttachmentsPage";
+import { TABLE_KEYS } from "@/features/compliance-attachments/tables";
+import { ComplianceStatusPage } from "@/features/compliance-status/ComplianceStatusPage";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { DesignerPage } from "@/features/designer/DesignerPage";
 import { DisksPage } from "@/features/disks/DisksPage";
+import { ChecksPage } from "@/features/checks/ChecksPage";
+import { CheckDefaultsPage } from "@/features/checks/CheckDefaultsPage";
+import { CheckContextualPage } from "@/features/checks/CheckContextualPage";
 import { PackagesPage } from "@/features/packages/PackagesPage";
 import { HardwarePage } from "@/features/hardware/HardwarePage";
 import { SwitchesPage } from "@/features/switches/SwitchesPage";
 import { MetricsPage } from "@/features/metrics/MetricsPage";
 import { ReportsPage } from "@/features/reports/ReportsPage";
 import { ReportReaderPage } from "@/features/report-reader/ReportReaderPage";
+import { OrchestrationsPage } from "@/features/orchestrations/OrchestrationsPage";
+import { OrchestrationEditorPage } from "@/features/orchestrations/OrchestrationEditorPage";
+import { RunsPage } from "@/features/orchestrations/RunsPage";
+import { RunPage } from "@/features/orchestrations/RunPage";
 import { parseReaderSearch } from "@/features/report-reader/reader-search";
 import { ChartsPage } from "@/features/charts/ChartsPage";
 import { ClustersPage } from "@/features/clusters/ClustersPage";
 import { ResourcesPage } from "@/features/resources/ResourcesPage";
+import { ServiceActionsPage } from "@/features/service-actions/ServiceActionsPage";
 import { FiltersPage } from "@/features/filters/FiltersPage";
+import { ClaimMappingsPage } from "@/features/claim-mappings/ClaimMappingsPage";
+import { FormConnectorsPage } from "@/features/form-connectors/FormConnectorsPage";
+import { FieldConstraintsPage } from "@/features/field-constraints/FieldConstraintsPage";
 import { FiltersetsPage } from "@/features/filtersets/FiltersetsPage";
 import { FormsPage } from "@/features/forms/FormsPage";
+import { SafePage } from "@/features/safe/SafePage";
+import { AssistantPage } from "@/features/assistant/AssistantPage";
 import { NewRequestPage } from "@/features/requests/NewRequestPage";
+import { QuotasPage } from "@/features/quotas/QuotasPage";
+import { SavesPage } from "@/features/saves/SavesPage";
 import {
   AllRequestsPage,
   TeamRequestsPage,
@@ -29,6 +48,7 @@ import { GroupsPage } from "@/features/groups/GroupsPage";
 import { InstancesPage } from "@/features/instances/InstancesPage";
 import { LogsPage } from "@/features/logs/LogsPage";
 import { ModulesetsPage } from "@/features/modulesets/ModulesetsPage";
+import { CompModulesPage } from "@/features/comp-modules/CompModulesPage";
 import { NetworksPage } from "@/features/networks/NetworksPage";
 import { NodesPage } from "@/features/nodes/NodesPage";
 import { ObsolescencePage } from "@/features/obsolescence/ObsolescencePage";
@@ -85,6 +105,41 @@ const networksRoute = createRoute({
   validateSearch: parseListSearch,
 });
 
+const checksRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/checks",
+  component: ChecksPage,
+  validateSearch: parseListSearch,
+});
+
+const checkDefaultsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/checks/defaults",
+  component: CheckDefaultsPage,
+  validateSearch: parseListSearch,
+});
+
+const checkContextualRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/checks/contextual",
+  component: CheckContextualPage,
+  validateSearch: parseListSearch,
+});
+
+const savesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/saves",
+  component: SavesPage,
+  validateSearch: parseListSearch,
+});
+
+const quotasRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/quotas",
+  component: QuotasPage,
+  validateSearch: parseListSearch,
+});
+
 const disksRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/disks",
@@ -120,6 +175,33 @@ const statReportRoute = createRoute({
   path: "/stats/reports/$reportId",
   component: ReportReaderPage,
   validateSearch: parseReaderSearch,
+});
+
+// Orchestration: the plans of agent actions, their editor, and their runs.
+const orchestrationsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/orchestrations",
+  component: OrchestrationsPage,
+  validateSearch: parseListSearch,
+});
+
+const orchestrationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/orchestrations/$orchestrationId",
+  component: OrchestrationEditorPage,
+});
+
+const orchestrationRunsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/orchestrations/runs",
+  component: RunsPage,
+  validateSearch: parseListSearch,
+});
+
+const orchestrationRunRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/orchestrations/runs/$runId",
+  component: RunPage,
 });
 
 const metricsRoute = createRoute({
@@ -186,6 +268,14 @@ const resourcesRoute = createRoute({
   validateSearch: parseListSearch,
 });
 
+// `view-actions` of the historical menu: the actions the agents ran on the services.
+const serviceActionsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/service-actions",
+  component: ServiceActionsPage,
+  validateSearch: parseListSearch,
+});
+
 const tagsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/tags",
@@ -214,10 +304,47 @@ const filtersRoute = createRoute({
   validateSearch: parseListSearch,
 });
 
+// The external APIs the forms call through oc3: Manager only, as the api.
+const formConnectorsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/form-connectors",
+  component: FormConnectorsPage,
+  validateSearch: parseListSearch,
+});
+
+const claimMappingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/claim-mappings",
+  component: ClaimMappingsPage,
+  validateSearch: parseListSearch,
+});
+
+const fieldConstraintsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/field-constraints",
+  component: FieldConstraintsPage,
+  validateSearch: parseListSearch,
+});
+
 const filtersetsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/filtersets",
   component: FiltersetsPage,
+  validateSearch: parseListSearch,
+});
+
+// The conversation with the AI assistant, not connected yet.
+const assistantRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/ai",
+  component: AssistantPage,
+});
+
+// The files of the collector safe, a list as the others.
+const safeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/safe",
+  component: SafePage,
   validateSearch: parseListSearch,
 });
 
@@ -266,11 +393,38 @@ const modulesetsRoute = createRoute({
   validateSearch: parseListSearch,
 });
 
+// The scripts the modulesets name, kept by oc3 in git: everyone reads, a
+// CompManager creates, as the api.
+const compModulesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/compliance/modules",
+  component: CompModulesPage,
+  validateSearch: parseListSearch,
+});
+
 const designerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/compliance/designer",
   component: DesignerPage,
   validateSearch: parseListSearch,
+});
+
+const complianceStatusRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/compliance/status",
+  component: ComplianceStatusPage,
+  validateSearch: parseListSearch,
+});
+
+const complianceAttachmentsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/compliance/attachments",
+  component: ComplianceAttachmentsPage,
+  // The list state, and which of the four tables it is the state of.
+  validateSearch: (raw: Record<string, unknown>) => ({
+    ...parseListSearch(raw),
+    of: TABLE_KEYS.find((key) => key === raw.of),
+  }),
 });
 
 const complianceLogsRoute = createRoute({
@@ -309,6 +463,13 @@ const profileRoute = createRoute({
   component: ProfilePage,
 });
 
+// About the collector: no list state either. `AppShell` shows it signed out too.
+const aboutRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/about",
+  component: AboutPage,
+});
+
 const routeTree = rootRoute.addChildren([
   dashboardRoute,
   dashboardRedirectRoute,
@@ -317,8 +478,14 @@ const routeTree = rootRoute.addChildren([
   servicesRoute,
   instancesRoute,
   resourcesRoute,
+  serviceActionsRoute,
   networksRoute,
   disksRoute,
+  quotasRoute,
+  savesRoute,
+  checksRoute,
+  checkDefaultsRoute,
+  checkContextualRoute,
   switchesRoute,
   metricsRoute,
   reportsRoute,
@@ -334,18 +501,31 @@ const routeTree = rootRoute.addChildren([
   obsolescenceRoute,
   logsRoute,
   filtersRoute,
+  claimMappingsRoute,
+  formConnectorsRoute,
+  fieldConstraintsRoute,
   filtersetsRoute,
   formsRoute,
+  safeRoute,
+  assistantRoute,
   requestsRoute,
   allRequestsRoute,
   teamRequestsRoute,
   tiersRequestsRoute,
   modulesetsRoute,
+  compModulesRoute,
   rulesetsRoute,
+  complianceStatusRoute,
   complianceLogsRoute,
+  complianceAttachmentsRoute,
   designerRoute,
   actionsRoute,
+  orchestrationsRoute,
+  orchestrationRoute,
+  orchestrationRunsRoute,
+  orchestrationRunRoute,
   profileRoute,
+  aboutRoute,
 ]);
 
 export const router = createRouter({ routeTree });

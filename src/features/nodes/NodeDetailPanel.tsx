@@ -5,13 +5,19 @@ import { api } from "@/lib/api/client";
 import { DetailContent, type DetailGroup } from "@/components/opensvc/DetailPanel";
 import { linkedField } from "@/components/opensvc/linked-field";
 import { TeamLink } from "@/features/groups/TeamLink";
-import { NODE_RELATED_TABS } from "./related/node-related";
+import { NODE_RELATED_TABS, NODE_TAB_GROUPS } from "./related/node-related";
+import { useSearch } from "@tanstack/react-router";
 import { NodeActionsMenu } from "./NodeActionsMenu";
+import { NodeWebappLink } from "@/components/opensvc/AgentWebappLink";
 import { ObjectTags } from "@/components/opensvc/ObjectTags";
 import { OsLogo } from "@/components/opensvc/OsLogo";
 import { useTeams } from "@/features/groups/use-teams";
 import { useAppCodes } from "@/features/apps/use-app-codes";
 import { useTagEdit } from "@/features/tags/use-tag-edit";
+import {
+  useFieldConstraints,
+  valueLists,
+} from "@/features/field-constraints/use-field-constraints";
 import { RelatedTabsPanel } from "@/components/opensvc/RelatedTabsPanel";
 import { useNodeTags } from "./related/queries";
 import { problemText } from "@/lib/api/problem";
@@ -42,11 +48,18 @@ const BOOLEANS = new Set([...EDITABLE_BOOLEANS, "node_frozen"]);
 const EDITABLE = new Set<string>([
   "app",
   "team_responsible",
-  // The integration team is editable on request, but the agent writes it when its
-  // inventory carries it (`team_integ` in `worker/job_feed_system.go`, as `Optional`):
-  // a value set here holds until the next push that mentions it. The support team is
-  // in the same situation, left read-only.
+  // The integration and support teams, the security zone and the asset
+  // environment: the agent writes them only when its inventory carries them
+  // (`Optional` in `worker/job_feed_system.go`), a value set here holding until the
+  // next push that mentions it.
   "team_integ",
+  "team_support",
+  "sec_zone",
+  "asset_env",
+  // The virtualization: the agent never writes it.
+  "hv",
+  "hvpool",
+  "hvvdc",
   "status",
   "role",
   "type",
@@ -88,9 +101,9 @@ const text = (prop: keyof NodeRow) => (row: NodeRow) => {
   return value === undefined || value === null ? undefined : String(value);
 };
 
-const date = (prop: keyof NodeRow) => (row: NodeRow, locale: string) => {
+const date = (prop: keyof NodeRow) => (row: NodeRow) => {
   const value = row[prop];
-  return typeof value === "string" ? formatDateTime(value, locale) : undefined;
+  return typeof value === "string" ? formatDateTime(value) : undefined;
 };
 
 /**
@@ -148,6 +161,7 @@ const GROUPS: DetailGroup<NodeRow>[] = [
       },
       field("status"),
       field("role"),
+      field("asset_env"),
       field("assetname"),
       field("type"),
       field("sec_zone"),
@@ -210,6 +224,11 @@ const GROUPS: DetailGroup<NodeRow>[] = [
     ],
   },
   {
+    key: "virtualization",
+    family: "hypervisor",
+    fields: [field("hv"), field("hvpool"), field("hvvdc")],
+  },
+  {
     key: "location",
     family: "location",
     fields: [
@@ -252,7 +271,8 @@ const PROPS = GROUPS.flatMap((group) => group.fields.map((f) => f.prop)).join(",
 
 /**
  * Detail of a node: its properties, then its related data, one tab each
- * (`NODE_RELATED_TABS`). The open tab lives in the URL (`tab`), held by the view.
+ * (`NODE_RELATED_TABS`), gathered in groups (`NODE_TAB_GROUPS`). The open tab lives
+ * in the URL (`tab`), held by the view.
  */
 export function NodeDetailPanel({
   nodeId,
@@ -268,6 +288,8 @@ export function NodeDetailPanel({
   onTabChange: (tab: string | undefined) => void;
 }) {
   const { t } = useTranslation();
+  // The category of the former Inventory tab, which links of before its split name.
+  const search: { diff?: unknown } = useSearch({ strict: false });
   const queryClient = useQueryClient();
   const {
     data: node,
@@ -277,8 +299,9 @@ export function NodeDetailPanel({
   } = useQuery({
     queryKey: ["node", nodeId],
     enabled: nodeId !== undefined,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error: failure } = await api.GET("/nodes/{node_id}", {
+        signal,
         params: { path: { node_id: nodeId ?? "" }, query: { props: PROPS } },
       });
       if (failure !== undefined) throw new Error(JSON.stringify(failure));
@@ -306,6 +329,8 @@ export function NodeDetailPanel({
   const teams = useTeams();
   const appCodes = useAppCodes();
   const tagEdit = useTagEdit("node", nodeId);
+  // The values a Manager configured for some attributes, offered when editing them.
+  const constraints = useFieldConstraints("node");
 
   return (
     <RelatedTabsPanel
@@ -315,19 +340,25 @@ export function NodeDetailPanel({
       onClose={onClose}
       objectId={nodeId}
       tabs={NODE_RELATED_TABS}
-      tab={tab}
+      groups={NODE_TAB_GROUPS}
+      // The boxes as a horizontal masonry rather than in columns.
+      tileLayout="masonry"
+      tab={currentTab(tab, search.diff)}
       onTabChange={onTabChange}
       propertiesFamily="node"
       label={t("nodes.related.label")}
-    >
-      {tagEdit.allowed && (
-        <div className="mb-4">
-          <NodeActionsMenu
-            nodes={nodeId === undefined ? [] : [{ id: nodeId, name: node?.nodename ?? nodeId }]}
-            onDeleted={onClose}
-          />
+      titleActions={
+        <div className="flex items-center gap-2">
+          {tagEdit.allowed && nodeId !== undefined && (
+            <NodeActionsMenu
+              nodes={[{ id: nodeId, name: node?.nodename ?? nodeId }]}
+              onDeleted={onClose}
+            />
+          )}
+          <NodeWebappLink node={node} />
         </div>
-      )}
+      }
+    >
       <ObjectTags
         tags={tags.data}
         isPending={open && tags.isPending}
@@ -337,6 +368,7 @@ export function NodeDetailPanel({
       <DetailContent
         groups={GROUPS}
         options={{ teams: teams.data ?? [], apps: appCodes.data ?? [], actionTypes: ACTION_TYPES }}
+        valueLists={valueLists(constraints.data?.data)}
         row={node}
         onSave={(changes) => save.mutateAsync(changes)}
         labelPrefix="nodes.fields"
@@ -346,4 +378,16 @@ export function NodeDetailPanel({
       />
     </RelatedTabsPanel>
   );
+}
+
+/** The categories the Inventory tab held, a tab each since. */
+const INVENTORY_TABS = ["hardware", "networks", "storage", "packages"];
+
+/**
+ * The tab to open: a link of before the split of the Inventory tab
+ * (`tab=inventory`, its category in `diff`) opens that category, hardware by default.
+ */
+function currentTab(tab: string | undefined, diff: unknown): string | undefined {
+  if (tab !== "inventory") return tab;
+  return INVENTORY_TABS.find((key) => key === diff) ?? "hardware";
 }

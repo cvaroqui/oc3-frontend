@@ -3,6 +3,8 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { DateTime } from "@/components/ui/DateTime";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
+import { SelectionDeleteMenu } from "@/components/opensvc/SelectionDeleteMenu";
+import { problemText } from "@/lib/api/problem";
 import { api } from "@/lib/api/client";
 import { toPage } from "@/lib/api/page";
 import { CollectorList, type ListColumn } from "@/components/opensvc/CollectorList";
@@ -14,7 +16,8 @@ import {
   visibleProps,
   type ResolvedListSearch,
 } from "@/lib/list-search";
-import { filterQuery, filtersKey } from "@/lib/column-filters";
+import { filterQuery, filtersKey, type ColumnFilters } from "@/lib/column-filters";
+import { STATS_LIMIT, toValueStats, type ValueStats } from "@/lib/api/value-stats";
 import { useViewPrefs, withSavedSearch } from "@/lib/user-prefs";
 import { TagCreatePanel } from "./TagCreatePanel";
 import { TagDetailPanel } from "./TagDetailPanel";
@@ -44,8 +47,8 @@ const COLUMNS: ListColumn<TagRow>[] = TAG_PROPS.map((prop) => ({
   prop,
   labelKey: `tags.fields.${prop}`,
   family: FAMILY[prop] ?? "team",
-  render: (row: TagRow, locale: string) =>
-    prop === "tag_created" ? <DateTime value={row.tag_created} locale={locale} /> : row[prop],
+  render: (row: TagRow) =>
+    prop === "tag_created" ? <DateTime value={row.tag_created} /> : row[prop],
 }));
 
 const ALL_PROPS = COLUMNS.map((column) => column.prop);
@@ -76,6 +79,17 @@ async function fetchTags(search: ResolvedListSearch) {
   return toPage(all, data.meta, search.limit);
 }
 
+/**
+ * The distribution of a column's values over the tags the filters given keep,
+ * for its filter: the pagination does not apply.
+ */
+async function tagStats(prop: string, filters: ColumnFilters): Promise<ValueStats> {
+  const query = { props: prop, stats: "1", limit: STATS_LIMIT, filter: filterQuery(filters) };
+  const response = await api.GET("/tags", { params: { query } });
+  if (response.error !== undefined) throw new Error(problemText(response.error));
+  return toValueStats(response.data.data, response.data.meta, prop);
+}
+
 function useTags(search: ResolvedListSearch) {
   return useQuery({
     queryKey: [
@@ -102,6 +116,16 @@ export function TagsPage() {
   );
   const navigate = useNavigate({ from: "/tags" });
   const { data, isPending, isError, error, isFetching } = useTags(search);
+  // The rows checked, and those just deleted, for the list to untick them.
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [deleted, setDeleted] = useState<string[]>([]);
+  // Names from the page on display: a selection extended to the following pages does
+  // not have them all, so the id then serves as a fallback in the messages.
+  const names = new Map<string, string>();
+  for (const row of data?.rows ?? []) {
+    const id = row.tag_id;
+    if (id !== undefined && row.tag_name !== undefined) names.set(id, row.tag_name);
+  }
 
   /** Ids of the whole selection, filters included, without pagination. */
   async function allIds(): Promise<string[]> {
@@ -150,17 +174,35 @@ export function TagsPage() {
         >
           {t("tags.create.open")}
         </button>
+        {/* On the rows checked in the list; nothing checked, no menu. */}
+        <SelectionDeleteMenu
+          targets={selectedIds.map((id) => ({ id, name: names.get(id) ?? id }))}
+          prefix="tags.actions"
+          privileges={["TagManager"]}
+          remove={async (id) => {
+            const { error } = await api.DELETE("/tags/{tag_id}", {
+              params: { path: { tag_id: id } },
+            });
+            return error === undefined ? null : problemText(error);
+          }}
+          invalidate={[["tags"]]}
+          onDeleted={(ids) => {
+            setDeleted(ids);
+            // The detail of a deleted object has nothing left to show.
+            if (search.sel !== undefined && ids.includes(search.sel)) update({ sel: undefined });
+          }}
+        />
       </div>
 
       <CollectorList
+        viewPrefs={prefs}
+        valueStats={tagStats}
         columns={COLUMNS}
         defaultCols={DEFAULT_COLS}
         rows={data?.rows ?? []}
         rowId={(row) => row.tag_id}
         search={search}
         onChange={update}
-        // The collector's filtersets do not apply to tags.
-        filtersets={[]}
         isPending={isPending}
         isFetching={isFetching}
         errorMessage={isError ? error.message : null}
@@ -168,6 +210,8 @@ export function TagsPage() {
         exportPage={(page) => fetchTags({ ...search, ...page })}
         total={data?.total}
         selectAllMatching={allIds}
+        onSelectionChange={setSelectedIds}
+        unselect={deleted}
         filterable
       />
 

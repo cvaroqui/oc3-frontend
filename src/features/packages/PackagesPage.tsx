@@ -2,6 +2,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import type { components } from "@/lib/api/schema";
+import type { FiltersetSource } from "@/lib/filterset-entries";
 import { api } from "@/lib/api/client";
 import { toPage } from "@/lib/api/page";
 import { problemText } from "@/lib/api/problem";
@@ -18,8 +19,10 @@ import {
   visibleProps,
   type ResolvedListSearch,
 } from "@/lib/list-search";
-import { filterQuery, filtersKey } from "@/lib/column-filters";
+import { filterQuery, filtersKey, type ColumnFilters } from "@/lib/column-filters";
+import { STATS_LIMIT, toValueStats, type ValueStats } from "@/lib/api/value-stats";
 import { useViewPrefs, withSavedSearch } from "@/lib/user-prefs";
+import { PackageDetailPanel } from "./PackageDetailPanel";
 
 type PackageRow = components["schemas"]["PackageRow"];
 
@@ -85,7 +88,7 @@ const COLUMNS: ListColumn<PackageRow>[] = PACKAGE_PROPS.map((prop) => ({
     if (prop === "pkg_updated" && typeof value === "string")
       return <RelativeTime value={value} locale={locale} />;
     if (prop === "pkg_install_date" && typeof value === "string" && value !== "")
-      return <DateTime value={value} locale={locale} />;
+      return <DateTime value={value} />;
     return value;
   },
 }));
@@ -95,6 +98,17 @@ const ALL_PROPS = COLUMNS.map((column) => column.prop);
 /** Columns shown, plus the row id and the node id the node name links with. */
 function queryProps(cols: string[] | undefined): string {
   return [...new Set(["id", "node_id", ...visibleProps(cols, DEFAULT_COLS, ALL_PROPS)])].join(",");
+}
+
+/**
+ * The distribution of a column's values over the selection: the filters given
+ * apply, not the pagination.
+ */
+async function packageStats(prop: string, filters: ColumnFilters): Promise<ValueStats> {
+  const query = { props: prop, stats: "1", limit: STATS_LIMIT, filter: filterQuery(filters) };
+  const response = await api.GET("/packages", { params: { query } });
+  if (response.error !== undefined) throw new Error(problemText(response.error));
+  return toValueStats(response.data.data, response.data.meta, prop);
 }
 
 /**
@@ -136,9 +150,21 @@ function usePackages(search: ResolvedListSearch) {
 }
 
 /**
+ * Filters saved as a filterset (SaveAsFilterset). Packages are rows of the packages
+ * table.
+ */
+const FILTERSET_SOURCE: FiltersetSource = {
+  table: "packages",
+  // Read from pkg_sig_provider, which filtersets cannot filter on.
+  exclude: ["sig_provider"],
+  selects: "related",
+};
+
+/**
  * Packages installed on the nodes the user can see, as their agents report them:
  * one row per node and package, with the provider of the signing key. Read-only;
- * the rows are filtered and sorted by the server.
+ * the rows are filtered and sorted by the server, and a row opens its package in a
+ * panel.
  */
 export function PackagesPage() {
   const { t } = useTranslation();
@@ -170,6 +196,8 @@ export function PackagesPage() {
     });
   }
 
+  const selected = data?.rows.find((row) => String(row.id) === search.sel);
+
   return (
     <section>
       <h1 className="mb-3 flex items-center gap-2 text-title font-semibold">
@@ -178,14 +206,13 @@ export function PackagesPage() {
       </h1>
 
       <CollectorList
+        viewPrefs={prefs}
         columns={COLUMNS}
         defaultCols={DEFAULT_COLS}
         rows={data?.rows ?? []}
         rowId={(row) => (row.id === undefined ? undefined : String(row.id))}
         search={search}
         onChange={update}
-        // apicollector has no packages endpoint filtered by filterset.
-        filtersets={[]}
         isPending={isPending}
         isFetching={isFetching}
         errorMessage={isError ? error.message : null}
@@ -193,7 +220,19 @@ export function PackagesPage() {
         exportPage={(page) => fetchPackages({ ...search, ...page })}
         total={data?.total}
         selectAllMatching={allIds}
+        valueStats={packageStats}
         filterable
+        filtersetSource={FILTERSET_SOURCE}
+      />
+
+      <PackageDetailPanel
+        pkgId={search.sel}
+        label={[selected?.pkg_name, selected?.["nodes.nodename"]]
+          .filter((part): part is string => typeof part === "string" && part !== "")
+          .join(" · ")}
+        onClose={() => {
+          update({ sel: undefined });
+        }}
       />
     </section>
   );

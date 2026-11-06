@@ -2,6 +2,7 @@ import { useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
+import { SelectionDeleteMenu } from "@/components/opensvc/SelectionDeleteMenu";
 import { api } from "@/lib/api/client";
 import { problemText } from "@/lib/api/problem";
 import { toPage } from "@/lib/api/page";
@@ -13,7 +14,8 @@ import {
 import { ObjectIcon } from "@/components/opensvc/ObjectIcon";
 import type { ColumnFamily } from "@/components/opensvc/ColumnFamily";
 import { DateTime } from "@/components/ui/DateTime";
-import { filterQuery, filtersKey } from "@/lib/column-filters";
+import { filterQuery, filtersKey, type ColumnFilters } from "@/lib/column-filters";
+import { STATS_LIMIT, toValueStats, type ValueStats } from "@/lib/api/value-stats";
 import {
   resolveListSearch,
   resetsScroll,
@@ -35,6 +37,7 @@ const FORM_PROPS = [
   "form_folder",
   "form_author",
   "form_created",
+  "form_yaml",
   "id",
 ] as const satisfies readonly (keyof FormRow)[];
 
@@ -52,6 +55,8 @@ const FAMILY: Record<string, ColumnFamily> = {
   form_folder: "state",
   form_author: "team",
   form_created: "time",
+  // The cog of the historical column (`action16`).
+  form_yaml: "action",
   id: "state",
 };
 
@@ -61,15 +66,44 @@ const TYPE_OPTIONS: ColumnFilterOption[] = FORM_TYPES.map((value) => ({
   labelKey: `forms.types.${value}`,
 }));
 
+/** Lines of the definition shown in its cell. */
+const PREVIEW_LINES = 5;
+
+/**
+ * The definition of a form in its cell, as the historical table showed it, without
+ * scrolling: its first lines, the blank ones left out, each cut at the width of
+ * the column with its indentation kept, and how many more lines follow. The whole
+ * of it is in the detail.
+ */
+function DefinitionPreview({ yaml }: { yaml: string | undefined }) {
+  const { t } = useTranslation();
+  if (yaml === undefined || yaml.trim() === "") return null;
+  const lines = yaml.split("\n").filter((line) => line.trim() !== "");
+  const more = lines.length - PREVIEW_LINES;
+  return (
+    <div className="max-w-xl py-0.5 font-mono text-data leading-snug">
+      {lines.slice(0, PREVIEW_LINES).map((line, i) => (
+        <div key={i} className="overflow-hidden text-ellipsis whitespace-pre">
+          {line}
+        </div>
+      ))}
+      {more > 0 && (
+        <div className="font-sans text-ink-muted">{t("forms.definitionMore", { count: more })}</div>
+      )}
+    </div>
+  );
+}
+
 const COLUMNS: ListColumn<FormRow>[] = FORM_PROPS.map((prop) => ({
   prop,
   labelKey: `forms.fields.${prop}`,
   numeric: prop === "id",
   family: FAMILY[prop] ?? "state",
   filter: prop === "form_type" ? { kind: "enum" as const, options: TYPE_OPTIONS } : undefined,
-  render: (row: FormRow, locale: string) => {
-    if (prop === "form_created") return <DateTime value={row.form_created} locale={locale} />;
+  render: (row: FormRow) => {
+    if (prop === "form_created") return <DateTime value={row.form_created} />;
     if (prop === "form_folder") return <code>{row.form_folder}</code>;
+    if (prop === "form_yaml") return <DefinitionPreview yaml={row.form_yaml} />;
     return row[prop];
   },
 }));
@@ -80,6 +114,17 @@ function queryProps(cols: string[] | undefined): string {
   return [...new Set(["id", "form_name", ...visibleProps(cols, DEFAULT_COLS, ALL_PROPS)])].join(
     ",",
   );
+}
+
+/**
+ * The distribution of a column's values over the selection: the filters given
+ * apply, not the pagination.
+ */
+async function formStats(prop: string, filters: ColumnFilters): Promise<ValueStats> {
+  const query = { props: prop, stats: "1", limit: STATS_LIMIT, filter: filterQuery(filters) };
+  const response = await api.GET("/forms", { params: { query } });
+  if (response.error !== undefined) throw new Error(problemText(response.error));
+  return toValueStats(response.data.data, response.data.meta, prop);
 }
 
 /**
@@ -133,6 +178,16 @@ export function FormsPage() {
   );
   const navigate = useNavigate({ from: "/forms" });
   const { data, isPending, isError, error, isFetching } = useForms(search);
+  // The rows checked, and those just deleted, for the list to untick them.
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [deleted, setDeleted] = useState<string[]>([]);
+  // Names from the page on display: a selection extended to the following pages does
+  // not have them all, so the id then serves as a fallback in the messages.
+  const names = new Map<string, string>();
+  for (const row of data?.rows ?? []) {
+    const id = row.id === undefined ? undefined : String(row.id);
+    if (id !== undefined && row.form_name !== undefined) names.set(id, row.form_name);
+  }
   // A single form: creation when nothing is selected, editing otherwise.
   const [panel, setPanel] = useState<"create" | "edit" | null>(null);
   const selectedForm = useForm(panel === "edit" ? search.sel : undefined);
@@ -184,18 +239,35 @@ export function FormsPage() {
         >
           {t("forms.form.open")}
         </button>
+        {/* On the rows checked in the list; nothing checked, no menu. */}
+        <SelectionDeleteMenu
+          targets={selectedIds.map((id) => ({ id, name: names.get(id) ?? id }))}
+          prefix="forms.actions"
+          privileges={["FormsManager"]}
+          remove={async (id) => {
+            const { error } = await api.DELETE("/forms/{form_id}", {
+              params: { path: { form_id: Number(id) } },
+            });
+            return error === undefined ? null : problemText(error);
+          }}
+          invalidate={[["forms"]]}
+          onDeleted={(ids) => {
+            setDeleted(ids);
+            // The detail of a deleted object has nothing left to show.
+            if (search.sel !== undefined && ids.includes(search.sel)) update({ sel: undefined });
+          }}
+        />
       </div>
       <p className="mb-3 max-w-3xl text-ink-muted">{t("forms.intro")}</p>
 
       <CollectorList
+        viewPrefs={prefs}
         columns={COLUMNS}
         defaultCols={DEFAULT_COLS}
         rows={data?.rows ?? []}
         rowId={(row) => (row.id === undefined ? undefined : String(row.id))}
         search={search}
         onChange={update}
-        // The collector's filtersets do not apply to forms.
-        filtersets={[]}
         isPending={isPending}
         isFetching={isFetching}
         errorMessage={isError ? error.message : null}
@@ -203,6 +275,9 @@ export function FormsPage() {
         exportPage={(page) => fetchForms({ ...search, ...page })}
         total={data?.total}
         selectAllMatching={allIds}
+        onSelectionChange={setSelectedIds}
+        unselect={deleted}
+        valueStats={formStats}
         filterable
       />
 

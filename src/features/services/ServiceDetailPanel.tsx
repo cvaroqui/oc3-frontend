@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import type { components } from "@/lib/api/schema";
+import type { components, paths } from "@/lib/api/schema";
 import { api } from "@/lib/api/client";
 import { problemText } from "@/lib/api/problem";
 import { DetailContent, type DetailGroup } from "@/components/opensvc/DetailPanel";
@@ -11,11 +11,17 @@ import { linkedField } from "@/components/opensvc/linked-field";
 import { NodeNameLinks } from "@/components/opensvc/NodeNameLinks";
 import { ObjectTags } from "@/components/opensvc/ObjectTags";
 import { useTagEdit } from "@/features/tags/use-tag-edit";
+import { useAmIResponsible } from "@/lib/api/am-i-responsible";
+import {
+  useFieldConstraints,
+  valueLists,
+} from "@/features/field-constraints/use-field-constraints";
 import { RelatedTabsPanel } from "@/components/opensvc/RelatedTabsPanel";
 import { StatusTimeline } from "@/components/opensvc/StatusTimeline";
 import { ServiceActionsMenu } from "./ServiceActionsMenu";
+import { ServiceWebappLink } from "@/components/opensvc/AgentWebappLink";
 import { useServiceTags } from "./related/queries";
-import { SERVICE_RELATED_TABS } from "./related/service-related";
+import { SERVICE_RELATED_TABS, SERVICE_TAB_GROUPS } from "./related/service-related";
 import { formatDateTime } from "@/lib/format";
 
 type ServiceRow = components["schemas"]["ServiceRow"];
@@ -25,9 +31,9 @@ const text = (prop: keyof ServiceRow) => (row: ServiceRow) => {
   return value === undefined ? undefined : String(value);
 };
 
-const date = (prop: keyof ServiceRow) => (row: ServiceRow, locale: string) => {
+const date = (prop: keyof ServiceRow) => (row: ServiceRow) => {
   const value = row[prop];
-  return typeof value === "string" ? formatDateTime(value, locale) : undefined;
+  return typeof value === "string" ? formatDateTime(value) : undefined;
 };
 
 const field = (
@@ -43,6 +49,17 @@ const field = (
  * "true", "false", "mixed", "n/a" for the other — which a switch cannot represent.
  */
 const flag = (prop: keyof ServiceRow) => ({ ...field(prop), input: "boolean" as const });
+
+/**
+ * The body of a change of the service. A responsible sets the SLA, the
+ * notifications and their snooze, the start wave and the disaster recovery
+ * nodes, as the historical service properties let one: the agents do not report
+ * them. `svc_app` is not offered: the configuration feed writes it back at each
+ * push.
+ */
+type ServiceUpdate = NonNullable<
+  paths["/services/{svc_id}"]["post"]["requestBody"]
+>["content"]["application/json"];
 
 const GROUPS: DetailGroup<ServiceRow>[] = [
   {
@@ -76,17 +93,26 @@ const GROUPS: DetailGroup<ServiceRow>[] = [
         prop: "svc_availability",
         format: (row) =>
           typeof row.svc_availability === "number" ? String(row.svc_availability) : undefined,
-        // Flagged against the SLA, as in the Services view.
+        // Flagged against the SLA and followed by its trend, as in the Services view.
         render: (row, locale) =>
           typeof row.svc_availability === "number" ? (
-            <AvailabilityRate rate={row.svc_availability} sla={row.svc_sla} locale={locale} />
+            <AvailabilityRate
+              rate={row.svc_availability}
+              sla={row.svc_sla}
+              trend={row.svc_availability_trend}
+              locale={locale}
+            />
           ) : null,
       },
       field("svc_frozen"),
       field("svc_provisioned"),
       field("svc_status_updated", date("svc_status_updated")),
-      field("svc_snooze_till", date("svc_snooze_till")),
-      flag("svc_notifications"),
+      {
+        ...field("svc_snooze_till", date("svc_snooze_till")),
+        input: "date" as const,
+        editable: true,
+      },
+      { ...flag("svc_notifications"), editable: true },
     ],
   },
   {
@@ -106,15 +132,15 @@ const GROUPS: DetailGroup<ServiceRow>[] = [
       field("svc_flex_target"),
       field("svc_flex_cpu_low_threshold"),
       field("svc_flex_cpu_high_threshold"),
-      field("svc_wave"),
+      { ...field("svc_wave"), input: "number" as const, editable: true },
     ],
   },
   {
     key: "disasterRecovery",
     family: "drp",
     fields: [
-      field("svc_drpnode"),
-      field("svc_drpnodes"),
+      { ...field("svc_drpnode"), editable: true },
+      { ...field("svc_drpnodes"), editable: true },
       field("svc_drptype"),
       field("svc_metrocluster"),
       flag("svc_drnoaction"),
@@ -132,12 +158,17 @@ const GROUPS: DetailGroup<ServiceRow>[] = [
   },
 ];
 
-// Ask the collector only for the properties actually shown.
-const PROPS = GROUPS.flatMap((group) => group.fields.map((f) => f.prop)).join(",");
+// Ask the collector only for the properties actually shown, plus the trend the
+// availability field renders without a field of its own.
+const PROPS = [
+  ...GROUPS.flatMap((group) => group.fields.map((f) => f.prop)),
+  "svc_availability_trend",
+].join(",");
 
 /**
  * Detail of a service: its properties, then its related data, one tab each
- * (`SERVICE_RELATED_TABS`). The open tab lives in the URL (`tab`), held by the view.
+ * (`SERVICE_RELATED_TABS`), gathered in groups (`SERVICE_TAB_GROUPS`). The open tab
+ * lives in the URL (`tab`), held by the view.
  */
 export function ServiceDetailPanel({
   svcId,
@@ -161,8 +192,9 @@ export function ServiceDetailPanel({
   } = useQuery({
     queryKey: ["service", svcId],
     enabled: svcId !== undefined,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error: failure } = await api.GET("/services/{svc_id}", {
+        signal,
         params: { path: { svc_id: svcId ?? "" }, query: { props: PROPS } },
       });
       if (failure !== undefined) throw new Error(JSON.stringify(failure));
@@ -174,19 +206,11 @@ export function ServiceDetailPanel({
   const open = svcId !== undefined;
   const tags = useServiceTags(svcId);
   const tagEdit = useTagEdit("service", svcId);
+  // The values a Manager configured for some attributes, offered when editing them.
+  const constraints = useFieldConstraints("service");
   const queryClient = useQueryClient();
   // The owners of the service justify its periods of unavailability.
-  const responsible = useQuery({
-    queryKey: ["service", svcId, "responsible"],
-    enabled: svcId !== undefined,
-    queryFn: async () => {
-      const { data, error: failure } = await api.GET("/services/{svc_id}/am_i_responsible", {
-        params: { path: { svc_id: svcId ?? "" } },
-      });
-      if (failure !== undefined) throw new Error(problemText(failure));
-      return data.data === true;
-    },
-  });
+  const responsible = useAmIResponsible("service", svcId);
 
   return (
     <RelatedTabsPanel
@@ -196,19 +220,29 @@ export function ServiceDetailPanel({
       onClose={onClose}
       objectId={svcId}
       tabs={SERVICE_RELATED_TABS}
+      groups={SERVICE_TAB_GROUPS}
+      // The boxes as a horizontal masonry, as on the node.
+      tileLayout="masonry"
       tab={tab}
       onTabChange={onTabChange}
       propertiesFamily="service"
       label={t("services.related.label")}
-    >
-      {tagEdit.allowed && (
-        <div className="mb-4">
-          <ServiceActionsMenu
-            services={svcId === undefined ? [] : [{ id: svcId, name: service?.svcname ?? svcId }]}
-            onDeleted={onClose}
+      titleActions={
+        <div className="flex items-center gap-2">
+          {tagEdit.allowed && svcId !== undefined && (
+            <ServiceActionsMenu
+              services={[{ id: svcId, name: service?.svcname ?? svcId }]}
+              onDeleted={onClose}
+            />
+          )}
+          <ServiceWebappLink
+            svcname={service?.svcname}
+            nodes={service?.svc_nodes}
+            clusterId={service?.cluster_id}
           />
         </div>
-      )}
+      }
+    >
       <ObjectTags
         tags={tags.data}
         isPending={open && tags.isPending}
@@ -220,23 +254,39 @@ export function ServiceDetailPanel({
         row={service}
         labelPrefix="services.fields"
         groupPrefix="services.detail.groups"
+        valueLists={valueLists(constraints.data?.data)}
         isPending={open && isPending}
         errorMessage={isError ? error.message : null}
-        editHint=""
-        onSave={async (changes) => {
-          if (svcId === undefined) return;
-          const sla = changes.svc_sla;
-          if (typeof sla !== "string") return;
-          const { error: failure } = await api.POST("/services/{svc_id}", {
-            params: { path: { svc_id: svcId } },
-            body: { svc_sla: sla },
-          });
-          if (failure !== undefined) throw new Error(problemText(failure));
-          await Promise.all([
-            queryClient.invalidateQueries({ queryKey: ["service", svcId] }),
-            queryClient.invalidateQueries({ queryKey: ["services"] }),
-          ]);
-        }}
+        editHint={t("services.detail.editHint")}
+        // Offered to the responsibles of the service, as the API checks it.
+        onSave={
+          tagEdit.allowed
+            ? async (changes) => {
+                if (svcId === undefined) return;
+                const body: ServiceUpdate = {};
+                const str = (v: unknown) => (typeof v === "string" ? v : undefined);
+                body.svc_sla = str(changes.svc_sla);
+                body.svc_snooze_till = str(changes.svc_snooze_till);
+                body.svc_drpnode = str(changes.svc_drpnode);
+                body.svc_drpnodes = str(changes.svc_drpnodes);
+                if (typeof changes.svc_wave === "number") body.svc_wave = changes.svc_wave;
+                if (typeof changes.svc_notifications === "boolean")
+                  body.svc_notifications = changes.svc_notifications;
+                for (const key of Object.keys(body) as (keyof ServiceUpdate)[])
+                  if (body[key] === undefined) delete body[key];
+                if (Object.keys(body).length === 0) return;
+                const { error: failure } = await api.POST("/services/{svc_id}", {
+                  params: { path: { svc_id: svcId } },
+                  body,
+                });
+                if (failure !== undefined) throw new Error(problemText(failure));
+                await Promise.all([
+                  queryClient.invalidateQueries({ queryKey: ["service", svcId] }),
+                  queryClient.invalidateQueries({ queryKey: ["services"] }),
+                ]);
+              }
+            : undefined
+        }
         groupFooters={
           svcId === undefined
             ? undefined

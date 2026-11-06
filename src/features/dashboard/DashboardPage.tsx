@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { DateTime } from "@/components/ui/DateTime";
 import { useNavigate, useSearch } from "@tanstack/react-router";
@@ -5,7 +6,6 @@ import { useTranslation } from "react-i18next";
 import type { components } from "@/lib/api/schema";
 import { api } from "@/lib/api/client";
 import { toPage } from "@/lib/api/page";
-import { useFiltersets } from "@/lib/api/filtersets";
 import { CollectorList, type ListColumn } from "@/components/opensvc/CollectorList";
 import { CrossLink } from "@/components/opensvc/CrossLink";
 import { ObjectIcon } from "@/components/opensvc/ObjectIcon";
@@ -18,19 +18,17 @@ import {
   type ResolvedListSearch,
 } from "@/lib/list-search";
 import { useViewPrefs, withSavedSearch } from "@/lib/user-prefs";
-import { filterQuery, filtersKey } from "@/lib/column-filters";
+import { filterQuery, filtersKey, type ColumnFilters } from "@/lib/column-filters";
+import { STATS_LIMIT, toValueStats, type ValueStats } from "@/lib/api/value-stats";
 import type { ColumnFilterOption } from "@/components/opensvc/CollectorList";
+import { AlertActionsMenu } from "./AlertActionsMenu";
+import { alertName, objectName } from "./alert-name";
 import { AlertDetailPanel } from "./AlertDetailPanel";
 
 type AlertRow = components["schemas"]["AlertRow"];
 
 /** The historical dashboard sorts by decreasing severity, then by type. */
 const DEFAULT_SORT = ["-dash_severity", "dash_type"];
-
-/** Name of the object aimed at: an entry carries either a service or a node. */
-function objectName(row: AlertRow): string {
-  return row["services.svcname"] ?? row["nodes.nodename"] ?? "";
-}
 
 /** The severities the collector raises, from the lowest, each with its badge. */
 const SEVERITY_OPTIONS: ColumnFilterOption[] = [0, 1, 2, 3, 4, 5].map((severity) => ({
@@ -92,13 +90,13 @@ const COLUMNS: ListColumn<AlertRow>[] = [
     prop: "dash_created",
     labelKey: "alerts.fields.dash_created",
     family: "time",
-    render: (r, locale) => <DateTime value={r.dash_created} locale={locale} />,
+    render: (r) => <DateTime value={r.dash_created} />,
   },
   {
     prop: "dash_updated",
     labelKey: "alerts.fields.dash_updated",
     family: "time",
-    render: (r, locale) => <DateTime value={r.dash_updated} locale={locale} />,
+    render: (r) => <DateTime value={r.dash_updated} />,
   },
 ];
 
@@ -132,6 +130,17 @@ async function fetchAlerts(search: ResolvedListSearch) {
   return toPage(all, data.meta, search.limit);
 }
 
+/**
+ * The distribution of a column's values over the alerts the filters given keep,
+ * for its filter: the pagination does not apply.
+ */
+async function alertStats(prop: string, filters: ColumnFilters): Promise<ValueStats> {
+  const query = { props: prop, stats: "1", limit: STATS_LIMIT, filter: filterQuery(filters) };
+  const response = await api.GET("/alerts", { params: { query } });
+  if (response.error !== undefined) throw new Error(JSON.stringify(response.error));
+  return toValueStats(response.data.data, response.data.meta, prop);
+}
+
 function useAlerts(search: ResolvedListSearch) {
   return useQuery({
     queryKey: [
@@ -139,7 +148,6 @@ function useAlerts(search: ResolvedListSearch) {
       search.sort,
       search.offset,
       search.limit,
-      search.fset,
       search.cols,
       filtersKey(search.filters),
     ],
@@ -176,7 +184,8 @@ export function DashboardPage() {
   const navigate = useNavigate({ from: "/" });
   const { data, isPending, isError, error, isFetching } = useAlerts(search);
   const severities = useSeverityCounts();
-  const filtersets = useFiltersets();
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [deleted, setDeleted] = useState<string[]>([]);
 
   /** Ids of the whole selection, without pagination. */
   async function allIds(): Promise<string[]> {
@@ -202,14 +211,32 @@ export function DashboardPage() {
   }
 
   const selected = data?.rows.find((row) => String(row.id) === search.sel);
+  // Names from the page on display: a selection extended to the following pages does
+  // not have them all, so the id then serves as a fallback in the messages.
+  const alertNames = Object.fromEntries(
+    (data?.rows ?? []).map((row) => [String(row.id), alertName(row)]),
+  );
 
   return (
     <section>
-      <div className="mb-3 flex flex-wrap items-baseline gap-3">
+      {/* As tall as the Actions button from the start: checking a row must not push the list down. */}
+      <div className="mb-3 flex min-h-7 items-center gap-3">
         <h1 className="flex items-center gap-2 text-title font-semibold">
-          <ObjectIcon kind="dashboard" className="h-5 w-5" />
+          <ObjectIcon kind="dashboardView" className="h-5 w-5" />
           {t("dashboard.title")}
         </h1>
+        {/* On the rows checked in the list; nothing checked, no menu. */}
+        <AlertActionsMenu
+          alerts={selectedIds.map((id) => ({ id, name: alertNames[id] ?? id }))}
+          onDeleted={(ids) => {
+            setDeleted(ids);
+            // The detail of a deleted alert has nothing left to show.
+            if (search.sel !== undefined && ids.includes(search.sel)) update({ sel: undefined });
+          }}
+        />
+      </div>
+      {/* The count of alerts by severity, over every alert: a line of its own under the title. */}
+      <div className="mb-3 flex flex-wrap items-center gap-3">
         {(severities.data ?? []).map((entry) => (
           <span key={entry.severity} className="flex items-center gap-1 text-ink-muted">
             <SeverityBadge severity={entry.severity} />
@@ -219,13 +246,14 @@ export function DashboardPage() {
       </div>
 
       <CollectorList
+        viewPrefs={prefs}
+        valueStats={alertStats}
         columns={COLUMNS}
         defaultCols={DEFAULT_COLS}
         rows={data?.rows ?? []}
         rowId={(row) => (row.id === undefined ? undefined : String(row.id))}
         search={search}
         onChange={update}
-        filtersets={filtersets.data ?? []}
         isPending={isPending}
         isFetching={isFetching}
         errorMessage={isError ? error.message : null}
@@ -233,12 +261,17 @@ export function DashboardPage() {
         exportPage={(page) => fetchAlerts({ ...search, ...page })}
         total={data?.total}
         selectAllMatching={allIds}
+        onSelectionChange={setSelectedIds}
+        unselect={deleted}
         filterable
       />
 
       <AlertDetailPanel
         alertId={search.sel}
         label={selected === undefined ? "" : (selected.dash_type ?? "")}
+        onDeleted={(id) => {
+          setDeleted([id]);
+        }}
         onClose={() => {
           update({ sel: undefined });
         }}

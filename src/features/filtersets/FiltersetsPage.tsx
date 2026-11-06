@@ -3,6 +3,10 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import type { components } from "@/lib/api/schema";
+import { SelectionDeleteMenu } from "@/components/opensvc/SelectionDeleteMenu";
+import { usageWarnings } from "@/components/opensvc/usage-warnings";
+import { problemText } from "@/lib/api/problem";
+import { filtersetUsageCount } from "@/components/opensvc/filterset-usage";
 import { api } from "@/lib/api/client";
 import { toPage } from "@/lib/api/page";
 import { FLAG_FILTER_OPTIONS } from "@/components/opensvc/filter-options";
@@ -17,7 +21,8 @@ import {
   visibleProps,
   type ResolvedListSearch,
 } from "@/lib/list-search";
-import { filterQuery, filtersKey } from "@/lib/column-filters";
+import { filterQuery, filtersKey, type ColumnFilters } from "@/lib/column-filters";
+import { STATS_LIMIT, toValueStats, type ValueStats } from "@/lib/api/value-stats";
 import { useViewPrefs, withSavedSearch } from "@/lib/user-prefs";
 import { CreateFiltersetPanel } from "./CreateFiltersetPanel";
 import { FiltersetDetailPanel } from "./FiltersetDetailPanel";
@@ -72,6 +77,17 @@ async function fetchFiltersetList(search: ResolvedListSearch) {
   return toPage(all, data.meta, search.limit);
 }
 
+/**
+ * The distribution of a column's values over the filtersets the filters given keep,
+ * for its filter: the pagination does not apply.
+ */
+async function filtersetStats(prop: string, filters: ColumnFilters): Promise<ValueStats> {
+  const query = { props: prop, stats: "1", limit: STATS_LIMIT, filter: filterQuery(filters) };
+  const response = await api.GET("/filtersets", { params: { query } });
+  if (response.error !== undefined) throw new Error(problemText(response.error));
+  return toValueStats(response.data.data, response.data.meta, prop);
+}
+
 function useFiltersetList(search: ResolvedListSearch) {
   return useQuery({
     // Under "filtersets": an edit also invalidates the dropdown of the views.
@@ -100,6 +116,16 @@ export function FiltersetsPage() {
   );
   const navigate = useNavigate({ from: "/filtersets" });
   const { data, isPending, isError, error, isFetching } = useFiltersetList(search);
+  // The rows checked, and those just deleted, for the list to untick them.
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [deleted, setDeleted] = useState<string[]>([]);
+  // Names from the page on display: a selection extended to the following pages does
+  // not have them all, so the id then serves as a fallback in the messages.
+  const names = new Map<string, string>();
+  for (const row of data?.rows ?? []) {
+    const id = row.id === undefined ? undefined : String(row.id);
+    if (id !== undefined && row.fset_name !== undefined) names.set(id, row.fset_name);
+  }
   const [creating, setCreating] = useState(false);
 
   async function allIds(): Promise<string[]> {
@@ -134,8 +160,8 @@ export function FiltersetsPage() {
     family: FAMILY[prop] ?? "state",
     filter:
       prop === "fset_stats" ? { kind: "enum" as const, options: FLAG_FILTER_OPTIONS } : undefined,
-    render: (row: FiltersetRow, locale: string) => {
-      if (prop === "fset_updated") return <DateTime value={row.fset_updated} locale={locale} />;
+    render: (row: FiltersetRow) => {
+      if (prop === "fset_updated") return <DateTime value={row.fset_updated} />;
       if (prop === "fset_stats")
         return row.fset_stats === "T"
           ? t("detail.yes")
@@ -168,18 +194,50 @@ export function FiltersetsPage() {
         >
           {t("filtersets.create.open")}
         </button>
+        {/* On the rows checked in the list; nothing checked, no menu. */}
+        <SelectionDeleteMenu
+          targets={selectedIds.map((id) => ({ id, name: names.get(id) ?? id }))}
+          prefix="filtersets.actions"
+          privileges={["CompManager"]}
+          remove={async (id) => {
+            const { error } = await api.DELETE("/filtersets/{filterset_id}", {
+              params: { path: { filterset_id: id } },
+            });
+            return error === undefined ? null : problemText(error);
+          }}
+          invalidate={[["filtersets"], ["filterset"]]}
+          warnings={(targets) =>
+            usageWarnings(
+              targets,
+              async (id) => {
+                const { data, error } = await api.GET("/filtersets/{filterset_id}/usage", {
+                  params: { path: { filterset_id: id } },
+                });
+                if (error !== undefined) throw new Error(problemText(error));
+                return filtersetUsageCount(data.data);
+              },
+              (target, uses) =>
+                t("filtersets.actions.data.delete.used", { name: target.name, count: uses }),
+            )
+          }
+          onDeleted={(ids) => {
+            setDeleted(ids);
+            // The detail of a deleted object has nothing left to show.
+            if (search.sel !== undefined && ids.includes(search.sel)) update({ sel: undefined });
+          }}
+        />
       </div>
       <p className="mb-3 max-w-3xl text-ink-muted">{t("filtersets.intro")}</p>
 
       <CollectorList
+        viewPrefs={prefs}
+        valueStats={filtersetStats}
         columns={columns}
         defaultCols={DEFAULT_COLS}
         rows={data?.rows ?? []}
         rowId={(row) => (row.id === undefined ? undefined : String(row.id))}
         search={search}
         onChange={update}
-        // Filtering the list of filtersets by a filterset would make no sense.
-        filtersets={[]}
         isPending={isPending}
         isFetching={isFetching}
         errorMessage={isError ? error.message : null}
@@ -187,6 +245,8 @@ export function FiltersetsPage() {
         exportPage={(page) => fetchFiltersetList({ ...search, ...page })}
         total={data?.total}
         selectAllMatching={allIds}
+        onSelectionChange={setSelectedIds}
+        unselect={deleted}
         filterable
       />
 
@@ -194,7 +254,11 @@ export function FiltersetsPage() {
         filtersetId={creating ? undefined : search.sel}
         label={selected?.fset_name ?? ""}
         onClose={() => {
-          update({ sel: undefined });
+          update({ sel: undefined, tab: undefined });
+        }}
+        tab={search.tab}
+        onTabChange={(tab) => {
+          update({ tab });
         }}
       />
 
