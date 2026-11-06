@@ -157,7 +157,12 @@ origin. Terminate TLS in front of the frontend, on the public host name — the 
 ### Container image
 
 The `Dockerfile` builds the application and serves it with an unprivileged nginx
-(uid 101, port 8080), which also proxies `/api` and `/realtime` to oc3:
+(uid 101, port 8080), which also proxies `/api` and `/realtime` to oc3.
+
+Each published release is built and pushed as `ghcr.io/opensvc/oc3-frontend`, tagged
+with its version, `<major>.<minor>`, `<major>` and `latest`, and signed with cosign.
+The other pushes and pull requests to `main` are built, not pushed. To build it
+yourself:
 
 ```sh
 docker build \
