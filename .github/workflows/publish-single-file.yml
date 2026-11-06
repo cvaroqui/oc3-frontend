@@ -1,0 +1,64 @@
+name: publish single file
+
+# The application as one file, gzipped, for the servers that take it as a file,
+# as the OpenSVC oc3 template, which keeps it in a key of its cfg: each published
+# release is pushed to the gh-pages branch, as <version>/index.html.gz and as
+# latest/index.html.gz, read through raw.githubusercontent.com, which answers
+# without a redirect.
+
+on:
+  release:
+    types: [ published ]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gh-pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Build the single file
+        env:
+          VERSION: ${{ github.event.release.tag_name }}
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build:single
+
+      - name: Push to gh-pages
+        env:
+          VERSION: ${{ github.event.release.tag_name }}
+        run: |
+          set -e
+          out=$(mktemp -d)
+          cp dist-single/index.html.gz "$out/"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null; then
+            git fetch origin gh-pages
+            git switch gh-pages
+          else
+            git switch --orphan gh-pages
+            git rm -rf --quiet . || true
+          fi
+          for dir in "$VERSION" latest; do
+            mkdir -p "$dir"
+            cp "$out/index.html.gz" "$dir/index.html.gz"
+          done
+          git add "$VERSION/index.html.gz" latest/index.html.gz
+          git commit -m "Publish the single file of $VERSION"
+          git push origin gh-pages

@@ -214,17 +214,24 @@ npm ci
 npm run build:single
 ```
 
-`dist-single/index.html` is the whole application in one file (about 2 MB, 660 kB
-gzipped): the script, the stylesheet, the fonts and the images are inlined, nothing else
-is loaded. Serve it on the same origin as above, for `/` and any path that is not `/api`
-or `/realtime`.
+`dist-single/index.html` is the whole application in one file (about 2.4 MB): the
+script, the stylesheet, the fonts and the images are inlined, nothing else is loaded.
+`dist-single/index.html.gz` is the same, gzipped (about 760 kB), for a server that
+sends it as is, as nginx does with `gzip_static always`: it fits in a key of an OpenSVC
+cfg, at most 1 MB by default. Serve it on the same origin as above, for `/` and any path
+that is not `/api` or `/realtime`.
+
+Each published release pushes its gzipped single file to the `gh-pages` branch, as
+`<version>/index.html.gz` and `latest/index.html.gz`:
+`https://raw.githubusercontent.com/opensvc/oc3-frontend/gh-pages/latest/index.html.gz`.
+The OpenSVC oc3 template seeds its key from there.
 
 The file carries its own Content-Security-Policy, in a `<meta>` tag: its single inline
 script allowed by hash, fonts and images as data URIs, everything else from this origin
 only. The header policy of `deploy/nginx/security-headers.conf` forbids inline scripts:
 a server of the single file must not send it, nor any policy stricter than the file's.
-Since nothing is cached apart, every page load downloads the whole file: prefer the
-standard build where long-term caching matters.
+Nothing is cached apart: a page load revalidates the file, and each release downloads it
+whole, its fonts and images included, where the standard build keeps those it has.
 
 ## Contributing
 
