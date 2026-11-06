@@ -217,9 +217,8 @@ npm run build:single
 `dist-single/index.html` is the whole application in one file (about 2.4 MB): the
 script, the stylesheet, the fonts and the images are inlined, nothing else is loaded.
 `dist-single/index.html.gz` is the same, gzipped (about 760 kB), for a server that
-sends it as is, as nginx does with `gzip_static always`: it fits in a key of an OpenSVC
-cfg, at most 1 MB by default. Serve it on the same origin as above, for `/` and any path
-that is not `/api` or `/realtime`.
+sends it as is, as nginx does with `gzip_static always`. Serve it on the same origin as
+above, for `/` and any path that is not `/api` or `/realtime`.
 
 Each published release gets its gzipped single file as an asset, `index.html.gz`:
 `https://github.com/opensvc/oc3-frontend/releases/download/<version>/index.html.gz`,

@@ -1,7 +1,7 @@
 name: release single file
 
 # The application as one file, gzipped, for the servers that take it as a file,
-# as the OpenSVC oc3 template, which keeps it in a key of its cfg: each published
+# as the OpenSVC oc3 template, which fetches it into its volume: each published
 # release gets it as an asset, index.html.gz, at
 #   https://github.com/opensvc/oc3-frontend/releases/download/<version>/index.html.gz
 #   https://github.com/opensvc/oc3-frontend/releases/latest/download/index.html.gz
